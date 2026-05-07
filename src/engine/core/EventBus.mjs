@@ -43,6 +43,11 @@
  * EventBus.instance.removeContext(this);
  * ```
  */
+import { Logger } from '../utils/Logger.mjs';
+
+/** @type {{ info: Function, warn: Function, error: Function, debug: Function }} */
+const log = Logger.for('EventBus');
+
 export class EventBus {
     /** @type {EventBus | null} */
     static #instance = null;
@@ -98,7 +103,7 @@ export class EventBus {
      */
     on(event, callback, context = null) {
         if (this.#isDestroyed) {
-            console.warn('[EventBus] 实例已销毁，无法注册新监听器');
+            log.warn('实例已销毁，无法注册新监听器');
             return () => {};
         }
 
@@ -197,7 +202,7 @@ export class EventBus {
         if (this.#isDestroyed) return;
 
         if (typeof event !== 'string' || event.length === 0) {
-            console.warn('[EventBus] 事件名必须是非空字符串');
+            log.warn('事件名必须是非空字符串');
             return;
         }
 
@@ -316,7 +321,7 @@ export class EventBus {
             try {
                 entry.callback.call(entry.context, data);
             } catch (err) {
-                console.error(`[EventBus] 事件 "${event}" 的回调执行出错:`, err);
+                log.error(`事件 "${event}" 的回调执行出错:`, err);
             }
         }
     }

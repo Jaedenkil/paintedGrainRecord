@@ -20,7 +20,7 @@
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { EventBus } from '../core/EventBus.js';
+import { EventBus } from '../core/EventBus.mjs';
 
 // === 基础测试 ====================================================
 

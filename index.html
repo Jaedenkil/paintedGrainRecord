@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta
         http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net;"
     >
     <title>云汲仙田录</title>
     <style>
@@ -71,24 +71,24 @@
         #loading-overlay .title {
             font-size: 2rem;
             color: #c9a96e;
-            margin-bottom: 1.5rem;
             text-shadow: 0 0 20px rgba(201, 169, 110, 0.3);
         }
 
-        #loading-overlay .progress-bar {
-            width: 200px;
-            height: 2px;
+        /* ── 标题下方细线进度条 ── */
+        #loading-overlay .title-underline {
+            width: 180px;
+            height: 1px;
             background: #2a2a2a;
-            border-radius: 1px;
             overflow: hidden;
-            margin-top: 1rem;
+            margin-top: 0.6rem;
+            margin-bottom: 1.5rem;
         }
 
-        #loading-overlay .progress-bar .fill {
+        #loading-overlay .title-underline .fill {
             width: 0%;
             height: 100%;
             background: #c9a96e;
-            transition: width 0.3s ease;
+            transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
     </style>
 </head>
@@ -99,10 +99,8 @@
          ============================================================ -->
     <div id="loading-overlay">
         <div class="title">云汲仙田录</div>
+        <div class="title-underline"><div class="fill" id="loading-progress"></div></div>
         <div>天道初启 · 万象更新</div>
-        <div class="progress-bar">
-            <div class="fill" id="loading-progress"></div>
-        </div>
     </div>
 
     <!-- ============================================================
@@ -116,15 +114,22 @@
          ============================================================ -->
     <script
         src="https://cdn.jsdelivr.net/npm/pixi.js@8.x/dist/pixi.min.js"
-        integrity="sha384-..."
         crossorigin="anonymous"
     ></script>
 
     <!-- ============================================================
-         引擎入口 - 渲染进程启动脚本
-         负责：初始化引擎核心 → 配置渲染管线 → 启动游戏循环
+         PixiJS unsafe-eval 兼容补丁
+         在 Electron 沙箱环境中，PixiJS v8 的 new Function() 会被 CSP 阻止。
+         此 polyfill 覆盖内部方法，使用预生成的纯函数替代 eval 编译。
+         加载顺序：必须在 pixi.js 之后、boot.mjs 之前。
          ============================================================ -->
-    <script type="module" src="./src/engine/render/index.js"></script>
+    <script src="./node_modules/pixi.js/dist/packages/unsafe-eval.min.js"></script>
+
+    <!-- ============================================================
+         引擎入口 - 引导启动脚本
+         负责：初始化引擎核心 → 注册渲染系统插件 → 启动游戏循环
+         ============================================================ -->
+    <script type="module" src="./src/engine/boot.mjs"></script>
 
 </body>
 </html>

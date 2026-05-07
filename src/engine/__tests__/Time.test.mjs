@@ -15,7 +15,7 @@
 
 import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { Time } from '../core/Time.js';
+import { Time } from '../core/Time.mjs';
 
 describe('Time - 基础功能', () => {
     let time;

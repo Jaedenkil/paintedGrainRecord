@@ -15,9 +15,9 @@
 
 import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { Engine, EngineState } from '../core/Engine.js';
-import { EventBus } from '../core/EventBus.js';
-import { GameLoop } from '../core/GameLoop.js';
+import { Engine, EngineState } from '../core/Engine.mjs';
+import { EventBus } from '../core/EventBus.mjs';
+import { GameLoop } from '../core/GameLoop.mjs';
 
 // RAF mock（Engine 启动需要）
 let _tickCount = 0;

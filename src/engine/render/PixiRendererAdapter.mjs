@@ -18,6 +18,10 @@
 import { RendererAdapter } from './RendererAdapter.mjs';
 import { EventBus } from '../core/EventBus.mjs';
 import { getErrorMessage } from '../utils/error.mjs';
+import { Logger } from '../utils/Logger.mjs';
+
+/** @type {{ info: Function, warn: Function, error: Function, debug: Function }} */
+const log = Logger.for('PixiRendererAdapter');
 
 /**
  * PixiJS 渲染适配器默认配置
@@ -79,7 +83,7 @@ export class PixiRendererAdapter extends RendererAdapter {
      */
     async init(container, options = {}) {
         if (this._initialized) {
-            console.warn('[PixiRendererAdapter] 适配器已初始化，跳过');
+            log.warn('适配器已初始化，跳过');
             return;
         }
 
@@ -123,10 +127,8 @@ export class PixiRendererAdapter extends RendererAdapter {
                 canvas: app.canvas,
                 options: this._options
             });
+log.info(`初始化完成 (${this._options.width}×${this._options.height})`);
 
-            console.log(
-                `[PixiRendererAdapter] 初始化完成 (${this._options.width}×${this._options.height})`
-            );
         } catch (err) {
             this._initialized = false;
             throw new Error(
@@ -160,7 +162,7 @@ export class PixiRendererAdapter extends RendererAdapter {
      */
     resize(width, height) {
         if (!this._app) {
-            console.warn('[PixiRendererAdapter] 适配器未初始化，无法 resize');
+            log.warn('适配器未初始化，无法 resize');
             return;
         }
 
@@ -189,6 +191,7 @@ export class PixiRendererAdapter extends RendererAdapter {
         if (!this._app) return;
 
         try {
+            log.info('正在销毁...');
             // 1. 从 DOM 中移除 canvas
             const canvas = this._app.canvas;
             if (canvas && canvas.parentNode) {
@@ -201,9 +204,9 @@ export class PixiRendererAdapter extends RendererAdapter {
             this._container = null;
             this._initialized = false;
 
-            console.log('[PixiRendererAdapter] 已销毁');
+            log.info('已销毁');
         } catch (err) {
-            console.error('[PixiRendererAdapter] 销毁失败:', getErrorMessage(err));
+            log.error('销毁失败:', getErrorMessage(err));
         }
     }
 

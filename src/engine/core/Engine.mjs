@@ -17,9 +17,13 @@
  *
  * @module core/Engine
  */
+import { EventBus } from './EventBus.mjs';
+import { GameLoop } from './GameLoop.mjs';
+import { Logger } from '../utils/Logger.mjs';
 
-import { EventBus } from './EventBus.js';
-import { GameLoop } from './GameLoop.js';
+/** @type {{ info: Function, warn: Function, error: Function, debug: Function }} */
+const log = Logger.for('Engine');
+
 
 /**
  * 引擎状态枚举
@@ -93,6 +97,16 @@ export class Engine {
         this._plugins = [];
 
         /**
+         * 插件初始化 Promise 注册表
+         *
+         * 插件可通过 `engine.registerPluginInitPromise(name, promise)` 注册异步初始化 Promise。
+         * 外部可通过 `engine.getPluginInitPromise(name)` 获取并 await。
+         *
+         * @type {Object<string, Promise<any>>}
+         */
+        this._pluginInitPromises = {};
+
+        /**
          * 引擎名称/版本标识
          * @type {{ name: string, version: string }}
          */
@@ -100,6 +114,8 @@ export class Engine {
             name: 'PaintedGrainEngine',
             version: '0.1.0'
         };
+
+        log.info(`引擎实例已创建 (${this.info.name} v${this.info.version})`);
     }
 
     /**
@@ -117,11 +133,12 @@ export class Engine {
      */
     init() {
         if (this._state !== EngineState.CREATED) {
-            console.warn(`[Engine] init() 在状态 "${this._state}" 下调用，忽略`);
+            log.warn(`init() 在状态 "${this._state}" 下调用，忽略`);
             return this;
         }
 
         this._state = EngineState.INITIALIZED;
+        log.info('引擎初始化完成，状态 → INITIALIZED');
         this.eventBus.emit('engine:init', {
             info: this.info
         });
@@ -150,6 +167,7 @@ export class Engine {
         }
 
         this._state = EngineState.RUNNING;
+        log.info('引擎启动，状态 → RUNNING');
         this.eventBus.emit('engine:start', {});
         this.loop.start();
 
@@ -168,6 +186,7 @@ export class Engine {
 
         this.loop.stop();
         this._state = EngineState.STOPPED;
+        log.info('引擎已停止，状态 → STOPPED');
         this.eventBus.emit('engine:stop', {});
 
         return this;
@@ -183,6 +202,7 @@ export class Engine {
 
         this.loop.pause();
         this._state = EngineState.PAUSED;
+        log.info('引擎已暂停，状态 → PAUSED');
 
         return this;
     }
@@ -197,6 +217,7 @@ export class Engine {
 
         this.loop.resume();
         this._state = EngineState.RUNNING;
+        log.info('引擎已恢复，状态 → RUNNING');
 
         return this;
     }
@@ -228,14 +249,59 @@ export class Engine {
 
         // 防止重复注册
         if (this._plugins.includes(plugin)) {
-            console.warn(`[Engine] 插件 "${plugin.name || '(unnamed)'}" 已注册，忽略`);
+            log.warn(`插件 "${plugin.name || '(unnamed)'}" 已注册，忽略`);
             return this;
         }
 
         this._plugins.push(plugin);
+        log.info(`插件已注册: "${plugin.name || '(unnamed)'}"`);
         plugin.install(this);
 
         return this;
+    }
+
+    /**
+     * 注册插件异步初始化 Promise。
+     *
+     * 插件在 install 期间如果有异步初始化流程，可调用此方法注册 Promise，
+     * 供外部通过 `getPluginInitPromise(name)` 等待初始化完成。
+     *
+     * @param {string} name - 插件名称
+     * @param {Promise<any>} promise - 初始化 Promise
+     * @returns {this}
+     *
+     * @example
+     * ```javascript
+     * // 在插件的 install() 中
+     * engine.registerPluginInitPromise('RenderSystem', initPromise);
+     *
+     * // 外部等待
+     * await engine.getPluginInitPromise('RenderSystem');
+     * ```
+     */
+    registerPluginInitPromise(name, promise) {
+        this._pluginInitPromises[name] = promise;
+        return this;
+    }
+
+    /**
+     * 获取指定插件的初始化 Promise。
+     *
+     * 如果插件尚未注册，返回 undefined。
+     *
+     * @param {string} name - 插件名称
+     * @returns {Promise<any>|undefined}
+     *
+     * @example
+     * ```javascript
+     * const promise = engine.getPluginInitPromise('RenderSystem');
+     * if (promise) {
+     *     await promise;
+     * }
+     * ```
+     */
+    getPluginInitPromise(name) {
+        return this._pluginInitPromises[name];
     }
 
     /**
@@ -244,18 +310,20 @@ export class Engine {
     destroy() {
         if (this._state === EngineState.DESTROYED) return;
 
+        log.info('引擎正在销毁...');
         this.loop.stop();
         this.eventBus.emit('engine:destroy', {});
         this.eventBus.clear();
         this._plugins = [];
         this._state = EngineState.DESTROYED;
+        log.info('引擎已销毁');
     }
 
     // ==================== 访问器 ====================
 
     /**
      * 时间管理器（GameLoop 内置的 Time 实例）
-     * @type {import('./Time.js').Time}
+     * @type {import('./Time.mjs').Time}
      */
     get time() { return this.loop.time; }
 

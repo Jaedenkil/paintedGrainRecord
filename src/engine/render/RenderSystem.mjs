@@ -34,6 +34,10 @@ import { PixiRendererAdapter } from './PixiRendererAdapter.mjs';
 import { LayerStack } from './LayerStack.mjs';
 import { Camera2D } from './Camera2D.mjs';
 import { getErrorMessage } from '../utils/error.mjs';
+import { Logger } from '../utils/Logger.mjs';
+
+/** @type {{ info: Function, warn: Function, error: Function, debug: Function }} */
+const log = Logger.for('RenderSystem');
 
 /**
  * 渲染系统配置默认值
@@ -121,12 +125,15 @@ export const renderSystem = {
      * @throws {Error} PIXI 未加载或 #game-container 不存在
      */
     install(engine) {
+        log.info('正在安装渲染系统...');
+
         // -------- 1. 校验依赖 --------
         if (typeof PIXI === 'undefined') {
             throw new Error(
                 '[RenderSystem] PIXI 全局对象不存在。请确保 pixi.js 脚本在渲染系统之前加载。'
             );
         }
+        log.info('PIXI 全局对象校验通过');
 
         // -------- 2. 获取 DOM 容器 --------
         const container = document.getElementById('game-container');
@@ -135,6 +142,7 @@ export const renderSystem = {
                 '[RenderSystem] DOM 容器 #game-container 不存在。'
             );
         }
+        log.info('DOM 容器 #game-container 已获取');
 
         const opts = { ...DEFAULT_OPTIONS };
 
@@ -216,10 +224,10 @@ export const renderSystem = {
                 canvas: adapter.getCanvas(),
                 options: opts
             });
+log.info(`初始化完成 (${opts.width}×${opts.height})`);
 
-            console.log(`[RenderSystem] 初始化完成 (${opts.width}×${opts.height})`);
         }).catch((/** @type {unknown} */ err) => {
-            console.error('[RenderSystem] 初始化失败:', getErrorMessage(err));
+            log.error('初始化失败:', getErrorMessage(err));
             throw err;
         });
 

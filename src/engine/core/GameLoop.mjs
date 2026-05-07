@@ -21,8 +21,13 @@
  * @module core/GameLoop
  */
 
-import { EventBus } from './EventBus.js';
-import { Time } from './Time.js';
+import { EventBus } from './EventBus.mjs';
+import { Time } from './Time.mjs';
+import { getErrorMessage } from '../utils/error.mjs';
+import { Logger } from '../utils/Logger.mjs';
+
+/** @type {{ info: Function, warn: Function, error: Function, debug: Function }} */
+const log = Logger.for('GameLoop');
 
 /**
  * 系统定义
@@ -100,6 +105,8 @@ export class GameLoop {
          * @type {Time}
          */
         this.time = new Time();
+
+        log.info('GameLoop 实例已创建');
     }
 
     // ==================== 系统注册 ====================
@@ -171,6 +178,7 @@ export class GameLoop {
         this._fps = 0;
         this.time.reset();
 
+        log.info('游戏循环已启动');
         this._tick(this._lastTime);
     }
 
@@ -185,6 +193,7 @@ export class GameLoop {
             this._rafId = null;
         }
         this.clearSystems();
+        log.info('游戏循环已停止');
     }
 
     /**
@@ -195,6 +204,7 @@ export class GameLoop {
         this._isPaused = true;
         this.time.timeScale = 0;
         EventBus.getInstance().emit('engine:pause', {});
+        log.info('游戏循环已暂停');
     }
 
     /**
@@ -207,6 +217,7 @@ export class GameLoop {
         this._lastTime = performance.now();
         this._accumulator = 0;
         EventBus.getInstance().emit('engine:resume', {});
+        log.info('游戏循环已恢复');
     }
 
     /**
@@ -321,7 +332,7 @@ export class GameLoop {
             try {
                 sys.update(dt);
             } catch (err) {
-                console.error(`[GameLoop] FixedSystem "${sys.name || i}" 更新出错:`, err);
+                log.error(`FixedSystem "${sys.name || i}" 更新出错:`, getErrorMessage(err));
             }
         }
     }
@@ -337,7 +348,7 @@ export class GameLoop {
             try {
                 sys.update(dt, interp);
             } catch (err) {
-                console.error(`[GameLoop] VariableSystem "${sys.name || i}" 更新出错:`, err);
+                log.error(`VariableSystem "${sys.name || i}" 更新出错:`, getErrorMessage(err));
             }
         }
     }

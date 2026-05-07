@@ -17,8 +17,8 @@
 
 import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { GameLoop } from '../core/GameLoop.js';
-import { EventBus } from '../core/EventBus.js';
+import { GameLoop } from '../core/GameLoop.mjs';
+import { EventBus } from '../core/EventBus.mjs';
 
 /**
  * 为 suite 创建一个自包含的 RAF mock，返回 { install, uninstall, resetTickCount }
