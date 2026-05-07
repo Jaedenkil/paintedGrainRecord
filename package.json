@@ -2,7 +2,7 @@
   "name": "paintedgrainrecord",
   "version": "1.0.0",
   "description": "",
-  "main": "main.js",
+  "main": "main.cjs",
   "directories": {
     "doc": "docs"
   },
@@ -13,8 +13,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "devDependencies": {
-    "electron": "^41.5.0"
+    "electron": "^41.5.0",
+    "pixi.js": "^8.6.6"
   }
 }

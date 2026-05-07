@@ -63,7 +63,7 @@ const DEFAULT_MAX_ZOOM = 3.0;
  * ```
  */
 export class Camera2D {
-    /** @private @type {import('pixi.js').Container} */
+    /** @private @type {import('pixi.js').Container|null} */
     _targetContainer;
 
     /** @private @type {number} */
@@ -340,6 +340,11 @@ export class Camera2D {
      * @private
      */
     _applyTransform() {
+        // PixiJS v8 移除了 Container.setTransform()，
+        // 需要用 position / scale / rotation 独立赋值
+        const container = this._targetContainer;
+        if (!container) return;
+
         const halfW = this._viewWidth / 2;
         const halfH = this._viewHeight / 2;
 
@@ -347,13 +352,12 @@ export class Camera2D {
         // 1. 平移到视口中心
         // 2. 缩放到目标值
         // 3. 反向平移相机位置（因为移动容器等于反向移动相机）
-        this._targetContainer.setTransform(
+        container.position.set(
             halfW - this._currentX * this._currentZoom,
-            halfH - this._currentY * this._currentZoom,
-            this._currentZoom,
-            this._currentZoom,
-            this._rotation
+            halfH - this._currentY * this._currentZoom
         );
+        container.scale.set(this._currentZoom, this._currentZoom);
+        container.rotation = this._rotation;
     }
 
     /**
@@ -397,5 +401,37 @@ export class Camera2D {
                 Math.min(this._boundaryMax.y - halfViewH, this._currentY)
             );
         }
+    }
+
+    // ==================== 资源释放 ====================
+
+    /**
+     * 销毁相机，释放所有引用。
+     *
+     * 清理项：
+     * - 取消跟随目标引用
+     * - 释放容器引用（允许 GC 回收）
+     * - 重置所有内部状态
+     *
+     * 调用后相机实例不可再使用。
+     *
+     * @example
+     * ```javascript
+     * camera.destroy();
+     * camera = null;
+     * ```
+     */
+    destroy() {
+        this._followTarget = null;
+        this._targetContainer = null;
+        this._currentX = 0;
+        this._currentY = 0;
+        this._targetX = 0;
+        this._targetY = 0;
+        this._currentZoom = 1.0;
+        this._targetZoom = 1.0;
+        this._rotation = 0;
+        this._boundaryMin = null;
+        this._boundaryMax = null;
     }
 }

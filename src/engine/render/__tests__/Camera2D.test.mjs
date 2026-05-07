@@ -27,18 +27,9 @@ import { EventBus } from '../../core/EventBus.mjs';
 
 class PIXIContainerMock {
     constructor() {
-        this.position = { x: 0, y: 0 };
-        this.scale = { x: 1, y: 1 };
+        this.position = { x: 0, y: 0, set: (px, py) => { this.position.x = px; this.position.y = py; } };
+        this.scale = { x: 1, y: 1, set: (sx, sy) => { this.scale.x = sx; this.scale.y = sy; } };
         this.rotation = 0;
-        this._transformCalls = [];
-    }
-    setTransform(x, y, scaleX, scaleY, rotation) {
-        this._transformCalls.push({ x, y, scaleX, scaleY, rotation });
-        this.position.x = x;
-        this.position.y = y;
-        this.scale.x = scaleX;
-        this.scale.y = scaleY;
-        this.rotation = rotation || 0;
     }
 }
 
@@ -94,10 +85,11 @@ describe('Camera2D - 初始状态', () => {
             viewHeight: 540
         });
 
-        assert.strictEqual(container._transformCalls.length, 1);
         // 视口中心 (480, 270) - 相机位置 (0,0) * 缩放 1.0
         assert.strictEqual(container.position.x, 480);
         assert.strictEqual(container.position.y, 270);
+        assert.strictEqual(container.scale.x, 1.0);
+        assert.strictEqual(container.scale.y, 1.0);
     });
 });
 

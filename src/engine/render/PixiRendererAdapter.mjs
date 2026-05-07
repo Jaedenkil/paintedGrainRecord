@@ -17,6 +17,7 @@
 
 import { RendererAdapter } from './RendererAdapter.mjs';
 import { EventBus } from '../core/EventBus.mjs';
+import { getErrorMessage } from '../utils/error.mjs';
 
 /**
  * PixiJS 渲染适配器默认配置
@@ -129,7 +130,7 @@ export class PixiRendererAdapter extends RendererAdapter {
         } catch (err) {
             this._initialized = false;
             throw new Error(
-                `[PixiRendererAdapter] 初始化失败: ${err.message}`
+                `[PixiRendererAdapter] 初始化失败: ${getErrorMessage(err)}`
             );
         }
     }
@@ -202,7 +203,7 @@ export class PixiRendererAdapter extends RendererAdapter {
 
             console.log('[PixiRendererAdapter] 已销毁');
         } catch (err) {
-            console.error('[PixiRendererAdapter] 销毁失败:', err);
+            console.error('[PixiRendererAdapter] 销毁失败:', getErrorMessage(err));
         }
     }
 
