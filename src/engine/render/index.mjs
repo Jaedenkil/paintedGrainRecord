@@ -23,3 +23,5 @@ export { RendererAdapter } from './RendererAdapter.mjs';
 export { PixiRendererAdapter } from './PixiRendererAdapter.mjs';
 export { LayerStack } from './LayerStack.mjs';
 export { Camera2D } from './Camera2D.mjs';
+export { BlockSprite, TILE_W, TILE_H, TILE_HALF_W, TILE_HALF_H, Z_BASE, BLOCK_TEXTURE_MAP }
+    from './BlockSprite.mjs';

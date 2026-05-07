@@ -120,8 +120,8 @@ export class PixiRendererAdapter extends RendererAdapter {
             // 5. 标记已初始化
             this._initialized = true;
 
-            // 6. 发射初始化完成事件
-            EventBus.getInstance().emit('render:initialized', {
+            // 6. 发射适配器初始化完成事件（RenderSystem 完成完整管线后另发 render:initialized）
+            EventBus.getInstance().emit('render:adapter-ready', {
                 renderer: app.renderer,
                 stage: app.stage,
                 canvas: app.canvas,
@@ -170,7 +170,7 @@ log.info(`初始化完成 (${this._options.width}×${this._options.height})`);
         this._options.width = width;
         this._options.height = height;
 
-        EventBus.getInstance().emit('render:resized', {
+        EventBus.getInstance().emit('render:adapter-resized', {
             width,
             height,
             renderer: this._app.renderer

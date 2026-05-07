@@ -10,7 +10,8 @@
  *
  * 契约：
  * - 实现者必须覆盖所有方法，否则抛出 Error
- * - init() 必须发射 'render:initialized' 事件（通过 EventBus）
+ * - init() 必须发射 'render:adapter-ready' 事件（通过 EventBus），
+ *   通知系统适配器层已就绪（RenderSystem 完成完整管线后另发 render:initialized）
  * - destroy() 必须释放所有 GPU 资源和 DOM 引用
  *
  * @module render/RendererAdapter

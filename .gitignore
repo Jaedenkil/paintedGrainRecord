@@ -20,6 +20,8 @@ Thumbs.db
 dist/
 build/
 *.exe
+# Test output
+test_output.txt
 
 # Roo MCP config (contains secrets)
 .roo/mcp.json

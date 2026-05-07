@@ -192,13 +192,13 @@ describe('PixiRendererAdapter - 初始化', () => {
         assert.strictEqual(container.children[0], canvas);
     });
 
-    it('init() 应发射 render:initialized 事件', async () => {
+    it('init() 应发射 render:adapter-ready 事件', async () => {
         const { PixiRendererAdapter } = await import('../PixiRendererAdapter.mjs');
         adapter = new PixiRendererAdapter();
 
         /** @type {Array<any>} */
         const events = [];
-        EventBus.getInstance().on('render:initialized', (data) => {
+        EventBus.getInstance().on('render:adapter-ready', (data) => {
             events.push(data);
         });
 
@@ -270,10 +270,10 @@ describe('PixiRendererAdapter - 渲染与操纵', () => {
         assert.strictEqual(renderer.height, 360);
     });
 
-    it('resize() 应发射 render:resized 事件', () => {
+    it('resize() 应发射 render:adapter-resized 事件', () => {
         /** @type {Array<any>} */
         const events = [];
-        EventBus.getInstance().on('render:resized', (data) => {
+        EventBus.getInstance().on('render:adapter-resized', (data) => {
             events.push(data);
         });
 

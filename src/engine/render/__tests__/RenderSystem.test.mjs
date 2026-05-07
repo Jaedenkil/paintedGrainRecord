@@ -32,6 +32,10 @@ class PIXIContainerMock {
         this.children = [];
         this.name = '';
         this.parent = null;
+        this.position = { x: 0, y: 0, set: (px, py) => { this.position.x = px; this.position.y = py; } };
+        this.scale = { x: 1, y: 1, set: (sx, sy) => { this.scale.x = sx; this.scale.y = sy; } };
+        this.rotation = 0;
+        this._destroyed = false;
     }
     addChild(child) {
         this.children.push(child);
@@ -47,7 +51,6 @@ class PIXIContainerMock {
         return false;
     }
     destroy(opts) { /* no-op */ }
-    get _destroyed() { return false; }
 }
 
 class PIXIRendererMock {
@@ -142,6 +145,18 @@ function uninstallPIXIMock() {
 }
 
 function installDOMAndWindowMock() {
+    // 提供 document 全局（Node.js 环境默认不存在）
+    if (typeof globalThis.document === 'undefined') {
+        globalThis.document = { getElementById: () => null };
+    }
+    // 提供 window 全局（指向 globalThis 以获取 addEventListener 等）
+    if (typeof globalThis.window === 'undefined') {
+        globalThis.window = /** @type {any} */ (globalThis);
+    }
+
+    // 标记是由本 mock 创建的，便于卸载时清理
+    globalThis._domMockCreated = true;
+
     // 模拟 #game-container
     mockGameContainer = createMockContainer();
     originalGetElementById = document.getElementById;
@@ -150,7 +165,7 @@ function installDOMAndWindowMock() {
         return null;
     };
 
-    // 模拟 window.addEventListener/removeEventListener
+    // 模拟 window.addEventListener/removeEventListener/dispatchEvent
     /** @type {Object<string, Function[]>} */
     const listeners = {};
     originalAddEventListener = window.addEventListener;
@@ -167,6 +182,18 @@ function installDOMAndWindowMock() {
         if (idx !== -1) listeners[type].splice(idx, 1);
     };
 
+    // 模拟 dispatchEvent — 同步调用所有注册的监听器
+    window.dispatchEvent = (/** @type {Event} */ evt) => {
+        const type = evt.type;
+        const handlers = listeners[type];
+        if (handlers) {
+            for (const handler of handlers) {
+                handler(evt);
+            }
+        }
+        return true;
+    };
+
     // 存储监听器供测试访问
     window.__listeners = listeners;
 
@@ -178,16 +205,28 @@ function installDOMAndWindowMock() {
 }
 
 function uninstallDOMAndWindowMock() {
-    document.getElementById = originalGetElementById;
-    window.addEventListener = originalAddEventListener;
-    window.removeEventListener = originalRemoveEventListener;
-    delete window.__listeners;
-
-    if (originalInnerWidth) {
-        Object.defineProperty(window, 'innerWidth', originalInnerWidth);
+    if (typeof document !== 'undefined') {
+        document.getElementById = originalGetElementById;
     }
-    if (originalInnerHeight) {
-        Object.defineProperty(window, 'innerHeight', originalInnerHeight);
+    if (typeof window !== 'undefined' && window !== globalThis) {
+        window.addEventListener = originalAddEventListener;
+        window.removeEventListener = originalRemoveEventListener;
+        delete window.__listeners;
+
+        if (originalInnerWidth) {
+            Object.defineProperty(window, 'innerWidth', originalInnerWidth);
+        }
+        if (originalInnerHeight) {
+            Object.defineProperty(window, 'innerHeight', originalInnerHeight);
+        }
+    }
+    // 清理由本 mock 创建的 document/window
+    if (globalThis._domMockCreated) {
+        delete globalThis.document;
+        if (globalThis.window === globalThis) {
+            delete globalThis.window;
+        }
+        delete globalThis._domMockCreated;
     }
 }
 
@@ -348,9 +387,9 @@ describe('RenderSystem - T5: 引擎集成', () => {
             stage.children[1]
         );
 
-        // Camera2D 的 targetContainer 应等于 cameraContainer
+        // Camera2D 的 _targetContainer 应等于 cameraContainer
         assert.strictEqual(
-            renderSystemModule.camera._container,
+            renderSystemModule.camera._targetContainer,
             stage.children[0]
         );
     });
