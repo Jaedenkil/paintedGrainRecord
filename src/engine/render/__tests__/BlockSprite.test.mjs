@@ -62,6 +62,7 @@ class PIXISpriteMock extends PIXIContainerMock {
         this.anchor = { x: 0, y: 0, set: (ax, ay) => { this.anchor.x = ax; this.anchor.y = ay; } };
         this._texture = null;
         this.position = { x: 0, y: 0, set: (px, py) => { this.position.x = px; this.position.y = py; } };
+        this.scale = { x: 1, y: 1, set: (sx, sy) => { this.scale.x = sx; this.scale.y = sy; } };
         this._textureApplied = false;
     }
 
@@ -84,9 +85,16 @@ function installPIXIMock() {
         Texture: {
             from(path) {
                 if (!textureRegistry[path]) {
-                    textureRegistry[path] = { path, _isMock: true };
+                    // 模拟 16×16 的源纹理（美术资产标准尺寸）
+                    textureRegistry[path] = { path, _isMock: true, width: 16, height: 16 };
                 }
                 return textureRegistry[path];
+            },
+            fromURL(path) {
+                if (!textureRegistry[path]) {
+                    textureRegistry[path] = { path, _isMock: true, width: 16, height: 16 };
+                }
+                return Promise.resolve(textureRegistry[path]);
             }
         }
     };
@@ -140,8 +148,42 @@ describe('BlockSprite - T7: 创建与基础属性', () => {
         const block = new BlockSprite({ blockType: 'dirt' });
         assert.strictEqual(block.blockType, 'dirt');
     });
-});
 
+    it('三个子 Sprite 的 scale 应为 (1, 1) 以适配 16×16 等比显示', () => {
+        const block = new BlockSprite();
+        const [top, left, right] = block.children;
+
+        assert.strictEqual(top.scale.x, 1);
+        assert.strictEqual(top.scale.y, 1);
+        assert.strictEqual(left.scale.x, 1);
+        assert.strictEqual(left.scale.y, 1);
+        assert.strictEqual(right.scale.x, 1);
+        assert.strictEqual(right.scale.y, 1);
+    });
+
+    it('blockId 应为单调递增的唯一 ID', () => {
+        const block1 = new BlockSprite();
+        const block2 = new BlockSprite();
+        assert.ok(block1.blockId > 0, `block1.blockId (${block1.blockId}) > 0`);
+        assert.ok(block2.blockId > block1.blockId,
+            `block2.blockId (${block2.blockId}) > block1.blockId (${block1.blockId})`);
+    });
+
+    it('selected 默认为 false，可设置和重置', () => {
+        const block = new BlockSprite();
+        assert.strictEqual(block.selected, false);
+
+        block.selected = true;
+        assert.strictEqual(block.selected, true);
+
+        block.selected = false;
+        assert.strictEqual(block.selected, false);
+
+        block.selected = true;
+        block.selected = true; // 幂等设置
+        assert.strictEqual(block.selected, true);
+    });
+});
 describe('BlockSprite - T7: setGridPosition 坐标变换', () => {
     /** @type {typeof import('../BlockSprite.mjs').BlockSprite} */
     let BlockSprite;
@@ -171,22 +213,22 @@ describe('BlockSprite - T7: setGridPosition 坐标变换', () => {
         assert.strictEqual(block.y, 0);
     });
 
-    it('setGridPosition(1, 0, 0) → 屏幕坐标 (32, 16)', () => {
+    it('setGridPosition(1, 0, 0) → 屏幕坐标 (12, 6)', () => {
         const block = new BlockSprite();
         block.setGridPosition(1, 0, 0);
 
-        // screenX = (1 - 0) * 32 = 32
-        // screenY = (1 + 0) * 16 - 0 * 32 = 16
+        // screenX = (1 - 0) * TILE_HALF_W(12) = 12
+        // screenY = (1 + 0) * TILE_HALF_H(6) - 0 * TILE_H(16) = 6
         assert.strictEqual(block.x, TILE_HALF_W);
         assert.strictEqual(block.y, TILE_HALF_H);
     });
 
-    it('setGridPosition(0, 1, 0) → 屏幕坐标 (-32, 16)', () => {
+    it('setGridPosition(0, 1, 0) → 屏幕坐标 (-12, 6)', () => {
         const block = new BlockSprite();
         block.setGridPosition(0, 1, 0);
 
-        // screenX = (0 - 1) * 32 = -32
-        // screenY = (0 + 1) * 16 - 0 * 32 = 16
+        // screenX = (0 - 1) * TILE_HALF_W(12) = -12
+        // screenY = (0 + 1) * TILE_HALF_H(6) - 0 * TILE_H(16) = 6
         assert.strictEqual(block.x, -TILE_HALF_W);
         assert.strictEqual(block.y, TILE_HALF_H);
     });
@@ -195,10 +237,10 @@ describe('BlockSprite - T7: setGridPosition 坐标变换', () => {
         const block = new BlockSprite();
         block.setGridPosition(3, 5, 0);
 
-        // screenX = (3 - 5) * 32 = -64
-        // screenY = (3 + 5) * 16 - 0 * 32 = 128
-        assert.strictEqual(block.x, -64);
-        assert.strictEqual(block.y, 128);
+        // screenX = (3 - 5) * TILE_HALF_W(12) = -24
+        // screenY = (3 + 5) * TILE_HALF_H(6) - 0 * TILE_H(16) = 48
+        assert.strictEqual(block.x, -24);
+        assert.strictEqual(block.y, 48);
     });
 
     it('gz 高度层应使方块在屏幕 Y 轴上移', () => {
@@ -373,8 +415,8 @@ describe('BlockSprite - T7: BLOCK_TEXTURE_MAP 完整性', () => {
         }
     });
 
-    it('注册类型数量应为 12 种', () => {
+    it('注册类型数量应为 14 种', () => {
         const count = Object.keys(BLOCK_TEXTURE_MAP).length;
-        assert.strictEqual(count, 12);
+        assert.strictEqual(count, 14);
     });
 });
