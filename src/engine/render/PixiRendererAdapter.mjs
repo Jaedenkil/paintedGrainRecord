@@ -32,7 +32,7 @@ const DEFAULT_OPTIONS = Object.freeze({
     height: 540,
     internalWidth: 320,
     internalHeight: 180,
-    backgroundColor: 0x1a1a2e,
+    backgroundColor: 0x0d0d0d,
     antialias: false,
     roundPixels: true,
     resolution: 1

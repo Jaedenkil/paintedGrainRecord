@@ -33,6 +33,8 @@
 import { PixiRendererAdapter } from './PixiRendererAdapter.mjs';
 import { LayerStack } from './LayerStack.mjs';
 import { Camera2D } from './Camera2D.mjs';
+import { SortManager, DEFAULT_LAYER_TYPES } from './SortManager.mjs';
+import { SceneGraph } from './SceneGraph.mjs';
 import { getErrorMessage } from '../utils/error.mjs';
 import { Logger } from '../utils/Logger.mjs';
 
@@ -46,7 +48,7 @@ const log = Logger.for('RenderSystem');
 const DEFAULT_OPTIONS = Object.freeze({
     width: 960,
     height: 540,
-    backgroundColor: 0x1a1a2e,
+    backgroundColor: 0x0d0d0d,
     antialias: false,
     roundPixels: true,
     resolution: 1,
@@ -101,6 +103,12 @@ export const renderSystem = {
 
     /** @type {Camera2D|null} */
     camera: null,
+
+    /** @type {SortManager|null} */
+    sortManager: null,
+
+    /** @type {SceneGraph|null} */
+    sceneGraph: null,
 
     /**
      * 窗口 resize 绑定的处理函数（用于取消监听）
@@ -167,6 +175,7 @@ export const renderSystem = {
             //   └── uiContainer (Layer 7, 固定不动)
             const cameraContainer = new PIXI.Container();
             cameraContainer.name = 'CameraContainer';
+            cameraContainer.eventMode = 'static'; // 允许事件传递到子节点（T12 网格点击交互必需）
             app.stage.addChild(cameraContainer);
 
             const uiContainer = new PIXI.Container();
@@ -190,17 +199,32 @@ export const renderSystem = {
             renderSystem.layerStack = layerStack;
             renderSystem.camera = camera;
 
-            // -------- 7. 注册为 variable 系统 --------
+            // -------- 7. 创建 SortManager（T10 Y-Sort）--------
+            const sortManager = new SortManager(layerStack);
+
+            // 应用层类型：静态层关闭自动排序，动态层保持自动排序
+            for (let i = 0; i < DEFAULT_LAYER_TYPES.length; i++) {
+                layerStack.setLayerType(i, DEFAULT_LAYER_TYPES[i]);
+            }
+
+            renderSystem.sortManager = sortManager;
+
+            // -------- 8. 创建 SceneGraph（T11）--------
+            const sceneGraph = new SceneGraph(layerStack, sortManager);
+            renderSystem.sceneGraph = sceneGraph;
+
+            // -------- 9. 注册为 variable 系统（含 Y-Sort）--------
             engine.loop.addSystem({
                 type: 'variable',
                 name: 'RenderSystem',
                 update: (dt) => {
                     camera.update(dt);
+                    sortManager.tick();         // Y-Sort 排序（T10）
                     adapter.render(app.stage);
                 }
             });
 
-            // -------- 8. 绑定窗口 resize 事件（T6）--------
+            // -------- 9. 绑定窗口 resize 事件（T6）--------
             /** @param {UIEvent} _evt */
             const resizeHandler = (_evt) => {
                 const w = window.innerWidth;
@@ -250,6 +274,18 @@ log.info(`初始化完成 (${opts.width}×${opts.height})`);
             window.removeEventListener('resize', this._resizeHandler);
             this._resizeHandler = null;
         }
+// 销毁场景图管理器（T11）
+if (this.sceneGraph) {
+    this.sceneGraph.destroy();
+    this.sceneGraph = null;
+}
+
+// 销毁排序管理器
+if (this.sortManager) {
+    this.sortManager.destroy();
+    this.sortManager = null;
+}
+
 
         // 销毁相机
         if (this.camera) {

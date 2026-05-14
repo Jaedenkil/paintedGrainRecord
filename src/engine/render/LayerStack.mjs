@@ -112,6 +112,10 @@ export class LayerStack {
             const layerContainer = new PIXI.Container();
             layerContainer.name = `Layer_${i}_${LAYER_DEFINITIONS[i].name}`;
 
+            // 启用层内 Y-Sort 排序：PixiJS 按 zIndex 对子对象排序
+            // 参考设计文档 T10（Y-Sort 排序系统）
+            layerContainer.sortableChildren = true;
+
             // Layer 0~6 挂载到 rootContainer（受相机影响）
             // Layer 7 (UI) 挂载到 uiContainer（不受相机影响）
             if (i < 7) {
@@ -241,6 +245,28 @@ export class LayerStack {
         }
 
         this._layers = [];
+    }
+
+    /**
+     * 设置指定图层的排序类型（T10 Y-Sort）。
+     *
+     * - 静态层（STATIC）：关闭 `sortableChildren`，由 SortManager 手动控制排序时机
+     * - 动态层（DYNAMIC）：启用 `sortableChildren`，PixiJS 在 render 阶段自动排序
+     *
+     * @param {number} index - 图层索引 (0~7)
+     * @param {string} type - 层类型 ('static' | 'dynamic')
+     * @throws {RangeError} index 超出范围
+     *
+     * @example
+     * ```javascript
+     * layerStack.setLayerType(1, 'static');   // Ground 层：仅脏时排序
+     * layerStack.setLayerType(4, 'dynamic');  // Characters 层：每帧自动排序
+     * ```
+     */
+    setLayerType(index, type) {
+        this._validateLayerIndex(index);
+        const container = this._layers[index];
+        container.sortableChildren = (type === 'dynamic');
     }
 
     /**
