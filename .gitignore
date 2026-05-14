@@ -25,3 +25,8 @@ test_output.txt
 
 # Roo MCP config (contains secrets)
 .roo/mcp.json
+
+# Temp / scratch files
+TEMP_*
+temp_*
+tmp/
