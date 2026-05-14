@@ -6,15 +6,64 @@
  * 负责窗口管理、IPC 桥接和原生功能暴露。
  * 引擎核心运行在渲染进程中。
  *
- * 注意：此文件使用 CommonJS（.cjs），因为 Electron v41 的
+ * 注意：此文件使用 CommonJS（.cjs），因为旧版 Electron 的
  * ESM 模块解析与 Node.js 的 ESM 加载器不兼容。
  * 引擎核心代码（src/engine/）使用 ESM（.mjs）。
  */
 
-const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 
+// ==================== Electron API 获取 ====================
+// Electron v28 的模块拦截在某些环境中可能不工作（返回路径字符串）。
+// 使用安全的 try-catch 回退策略，绝不会因原生绑定失败而崩溃。
+
+/** @type {import('electron') | null} */
+let electron = null;
+try {
+    const electronModule = require('electron');
+    // 如果返回的是字符串（路径），说明模块拦截失败
+    if (typeof electronModule === 'string') {
+        console.warn(`[MainProcess] require('electron') 返回路径字符串: ${electronModule}`);
+        console.warn('[MainProcess] 尝试通过原生绑定获取 API...');
+        // 安全地尝试原生绑定（必须包裹在 try-catch 中，某些环境下会崩溃）
+        try {
+            // @ts-ignore - _linkedBinding 是 Electron 内部 API
+            const binding = process._linkedBinding;
+            if (typeof binding === 'function') {
+                electron = {
+                    app: binding('electron_browser_app') || binding('app'),
+                    BrowserWindow: binding('electron_browser_base_window') || binding('electron_browser_window'),
+                    Menu: binding('electron_browser_menu'),
+                };
+            }
+        } catch (bindingErr) {
+            console.error(`[MainProcess] 原生绑定获取失败:`, bindingErr.message);
+            electron = null;
+        }
+    } else {
+        // 正常的模块拦截生效
+        electron = electronModule;
+        console.log('[MainProcess] require(electron) 成功获取 API 对象');
+    }
+} catch (e) {
+    console.error(`[MainProcess] require(electron) 失败: ${e.message}`);
+    electron = null;
+}
+
+const app = electron?.app;
+const BrowserWindow = electron?.BrowserWindow;
+const Menu = electron?.Menu;
+
 // ==================== 启动日志 ====================
+
+if (!app || !BrowserWindow) {
+    console.error('╔══════════════════════════════════════════════════════╗');
+    console.error('║  错误：无法获取 Electron 主进程 API！               ║');
+    console.error('║  请确保在 Electron 环境中运行此程序。                ║');
+    console.error('║  运行方式: npx electron .                           ║');
+    console.error('╚══════════════════════════════════════════════════════╝');
+    process.exit(1);
+}
 
 console.log('╔════════════════════════════════════════╗');
 console.log('║  云汲仙田录 · Electron 主进程启动中...   ║');

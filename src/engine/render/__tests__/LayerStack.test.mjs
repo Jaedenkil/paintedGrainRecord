@@ -28,6 +28,8 @@ class PIXIContainerMock {
         this.children = [];
         this.name = '';
         this.parent = null;
+        /** @type {boolean} 模拟 PixiJS Container.sortableChildren */
+        this.sortableChildren = false;
     }
     addChild(child) {
         this.children.push(child);
@@ -126,6 +128,20 @@ describe('LayerStack - 图层结构', () => {
         const uiLayer = layerStack.getLayer(7);
         assert.strictEqual(uiLayer.parent, uiContainer);
         assert.ok(uiLayer.name.includes('Layer_7_UI'));
+    });
+
+    it('所有图层容器的 sortableChildren 应设置为 true（启用 Y-Sort）', async () => {
+        const { LayerStack, LAYER_COUNT } = await import('../LayerStack.mjs');
+        layerStack = new LayerStack(rootContainer, uiContainer);
+
+        for (let i = 0; i < LAYER_COUNT; i++) {
+            const layer = layerStack.getLayer(i);
+            assert.strictEqual(
+                layer.sortableChildren,
+                true,
+                `Layer ${i} 的 sortableChildren 应为 true`
+            );
+        }
     });
 });
 

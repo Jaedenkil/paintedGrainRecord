@@ -8,13 +8,13 @@
   },
   "scripts": {
     "start": "electron .",
-    "test": "node --test src/engine/__tests__/EventBus.test.mjs src/engine/__tests__/Time.test.mjs src/engine/__tests__/GameLoop.test.mjs src/engine/__tests__/Engine.test.mjs"
+    "test": "node --test src/engine/__tests__/EventBus.test.mjs src/engine/__tests__/Time.test.mjs src/engine/__tests__/GameLoop.test.mjs src/engine/__tests__/Engine.test.mjs src/engine/core/__tests__/Bone.test.mjs src/engine/core/__tests__/Skeleton.test.mjs src/engine/core/__tests__/SkeletonPose.test.mjs src/engine/core/__tests__/AnimationClip.test.mjs src/engine/render/__tests__/SkeletalAnimationController.test.mjs src/engine/render/__tests__/SceneGraph.test.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^41.5.0",
+    "electron": "^28.3.3",
     "pixi.js": "^8.6.6"
   }
 }
