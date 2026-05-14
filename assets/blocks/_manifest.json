@@ -1,0 +1,746 @@
+{
+  "generatedAt": "2026-05-09T08:53:51.471Z",
+  "summary": {
+    "totalScenes": 4,
+    "totalFiles": 90,
+    "totalCopied": 90,
+    "materialCount": 13
+  },
+  "materialCounts": {
+    "dirt": 12,
+    "farm": 6,
+    "grass": 12,
+    "plank": 6,
+    "brick": 6,
+    "roof": 6,
+    "sand": 6,
+    "stone": 6,
+    "cloud": 6,
+    "jade": 6,
+    "magma": 6,
+    "snow": 6,
+    "water": 6
+  },
+  "entries": [
+    {
+      "id": "brick_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_brick_left.png",
+      "target": "assets/blocks/brick/brick_001_left.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "brick_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_brick_left_v2.png",
+      "target": "assets/blocks/brick/brick_002_left.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "brick_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_brick_right.png",
+      "target": "assets/blocks/brick/brick_003_right.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "brick_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_brick_right_v2.png",
+      "target": "assets/blocks/brick/brick_004_right.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "brick_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_brick_top.png",
+      "target": "assets/blocks/brick/brick_005_top.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "brick_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_brick_top_v2.png",
+      "target": "assets/blocks/brick/brick_006_top.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "cloud_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_cloud_left.png",
+      "target": "assets/blocks/cloud/cloud_001_left.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "cloud_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_cloud_left_v2.png",
+      "target": "assets/blocks/cloud/cloud_002_left.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "cloud_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_cloud_right.png",
+      "target": "assets/blocks/cloud/cloud_003_right.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "cloud_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_cloud_right_v2.png",
+      "target": "assets/blocks/cloud/cloud_004_right.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "cloud_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_cloud_top.png",
+      "target": "assets/blocks/cloud/cloud_005_top.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "cloud_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_cloud_top_v2.png",
+      "target": "assets/blocks/cloud/cloud_006_top.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "dirt_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_dirt_left.png",
+      "target": "assets/blocks/dirt/dirt_001_left.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "dirt_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_dirt_left_v2.png",
+      "target": "assets/blocks/dirt/dirt_002_left.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "dirt_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_dirt_right.png",
+      "target": "assets/blocks/dirt/dirt_003_right.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "dirt_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_dirt_right_v2.png",
+      "target": "assets/blocks/dirt/dirt_004_right.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "dirt_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_dirt_top.png",
+      "target": "assets/blocks/dirt/dirt_005_top.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "dirt_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_dirt_top_v2.png",
+      "target": "assets/blocks/dirt/dirt_006_top.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "dirt_007_left",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_dirt_left.png",
+      "target": "assets/blocks/dirt/dirt_007_left.png",
+      "scene": "幽暗密林",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "dirt_008_left",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_dirt_left_v2.png",
+      "target": "assets/blocks/dirt/dirt_008_left.png",
+      "scene": "幽暗密林",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "dirt_009_right",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_dirt_right.png",
+      "target": "assets/blocks/dirt/dirt_009_right.png",
+      "scene": "幽暗密林",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "dirt_010_right",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_dirt_right_v2.png",
+      "target": "assets/blocks/dirt/dirt_010_right.png",
+      "scene": "幽暗密林",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "dirt_011_top",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_dirt_top.png",
+      "target": "assets/blocks/dirt/dirt_011_top.png",
+      "scene": "幽暗密林",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "dirt_012_top",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_dirt_top_v2.png",
+      "target": "assets/blocks/dirt/dirt_012_top.png",
+      "scene": "幽暗密林",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "farm_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_farm_left.png",
+      "target": "assets/blocks/farm/farm_001_left.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "farm_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_farm_left_v2.png",
+      "target": "assets/blocks/farm/farm_002_left.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "farm_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_farm_right.png",
+      "target": "assets/blocks/farm/farm_003_right.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "farm_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_farm_right_v2.png",
+      "target": "assets/blocks/farm/farm_004_right.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "farm_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_farm_top.png",
+      "target": "assets/blocks/farm/farm_005_top.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "farm_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_farm_top_v2.png",
+      "target": "assets/blocks/farm/farm_006_top.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "grass_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_grass_left.png",
+      "target": "assets/blocks/grass/grass_001_left.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "grass_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_grass_left_v2.png",
+      "target": "assets/blocks/grass/grass_002_left.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "grass_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_grass_right.png",
+      "target": "assets/blocks/grass/grass_003_right.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "grass_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_grass_right_v2.png",
+      "target": "assets/blocks/grass/grass_004_right.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "grass_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_grass_top.png",
+      "target": "assets/blocks/grass/grass_005_top.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "grass_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_grass_top_v2.png",
+      "target": "assets/blocks/grass/grass_006_top.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "grass_007_left",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_grass_left.png",
+      "target": "assets/blocks/grass/grass_007_left.png",
+      "scene": "幽暗密林",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "grass_008_left",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_grass_left_v2.png",
+      "target": "assets/blocks/grass/grass_008_left.png",
+      "scene": "幽暗密林",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "grass_009_right",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_grass_right.png",
+      "target": "assets/blocks/grass/grass_009_right.png",
+      "scene": "幽暗密林",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "grass_010_right",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_grass_right_v2.png",
+      "target": "assets/blocks/grass/grass_010_right.png",
+      "scene": "幽暗密林",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "grass_011_top",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_grass_top.png",
+      "target": "assets/blocks/grass/grass_011_top.png",
+      "scene": "幽暗密林",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "grass_012_top",
+      "source": "assets\\blocks\\云汲仙田录\\幽暗密林\\block_grass_top_v2.png",
+      "target": "assets/blocks/grass/grass_012_top.png",
+      "scene": "幽暗密林",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "jade_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_jade_left.png",
+      "target": "assets/blocks/jade/jade_001_left.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "jade_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_jade_left_v2.png",
+      "target": "assets/blocks/jade/jade_002_left.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "jade_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_jade_right.png",
+      "target": "assets/blocks/jade/jade_003_right.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "jade_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_jade_right_v2.png",
+      "target": "assets/blocks/jade/jade_004_right.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "jade_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_jade_top.png",
+      "target": "assets/blocks/jade/jade_005_top.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "jade_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_jade_top_v2.png",
+      "target": "assets/blocks/jade/jade_006_top.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "magma_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_magma_left.png",
+      "target": "assets/blocks/magma/magma_001_left.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "magma_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_magma_left_v2.png",
+      "target": "assets/blocks/magma/magma_002_left.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "magma_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_magma_right.png",
+      "target": "assets/blocks/magma/magma_003_right.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "magma_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_magma_right_v2.png",
+      "target": "assets/blocks/magma/magma_004_right.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "magma_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_magma_top.png",
+      "target": "assets/blocks/magma/magma_005_top.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "magma_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_magma_top_v2.png",
+      "target": "assets/blocks/magma/magma_006_top.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "plank_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_plank_left.png",
+      "target": "assets/blocks/plank/plank_001_left.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "plank_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_plank_left_v2.png",
+      "target": "assets/blocks/plank/plank_002_left.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "plank_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_plank_right.png",
+      "target": "assets/blocks/plank/plank_003_right.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "plank_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_plank_right_v2.png",
+      "target": "assets/blocks/plank/plank_004_right.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "plank_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_plank_top.png",
+      "target": "assets/blocks/plank/plank_005_top.png",
+      "scene": "青竹谷",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "plank_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\青竹谷\\block_plank_top_v2.png",
+      "target": "assets/blocks/plank/plank_006_top.png",
+      "scene": "青竹谷",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "roof_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_roof_left.png",
+      "target": "assets/blocks/roof/roof_001_left.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "roof_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_roof_left_v2.png",
+      "target": "assets/blocks/roof/roof_002_left.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "roof_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_roof_right.png",
+      "target": "assets/blocks/roof/roof_003_right.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "roof_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_roof_right_v2.png",
+      "target": "assets/blocks/roof/roof_004_right.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "roof_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_roof_top.png",
+      "target": "assets/blocks/roof/roof_005_top.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "roof_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_roof_top_v2.png",
+      "target": "assets/blocks/roof/roof_006_top.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "sand_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_sand_left.png",
+      "target": "assets/blocks/sand/sand_001_left.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "sand_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_sand_left_v2.png",
+      "target": "assets/blocks/sand/sand_002_left.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "sand_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_sand_right.png",
+      "target": "assets/blocks/sand/sand_003_right.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "sand_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_sand_right_v2.png",
+      "target": "assets/blocks/sand/sand_004_right.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "sand_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_sand_top.png",
+      "target": "assets/blocks/sand/sand_005_top.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "sand_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_sand_top_v2.png",
+      "target": "assets/blocks/sand/sand_006_top.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "snow_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_snow_left.png",
+      "target": "assets/blocks/snow/snow_001_left.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "snow_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_snow_left_v2.png",
+      "target": "assets/blocks/snow/snow_002_left.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "snow_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_snow_right.png",
+      "target": "assets/blocks/snow/snow_003_right.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "snow_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_snow_right_v2.png",
+      "target": "assets/blocks/snow/snow_004_right.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "snow_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_snow_top.png",
+      "target": "assets/blocks/snow/snow_005_top.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "snow_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_snow_top_v2.png",
+      "target": "assets/blocks/snow/snow_006_top.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "stone_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_stone_left.png",
+      "target": "assets/blocks/stone/stone_001_left.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "stone_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_stone_left_v2.png",
+      "target": "assets/blocks/stone/stone_002_left.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "stone_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_stone_right.png",
+      "target": "assets/blocks/stone/stone_003_right.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "stone_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_stone_right_v2.png",
+      "target": "assets/blocks/stone/stone_004_right.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "stone_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_stone_top.png",
+      "target": "assets/blocks/stone/stone_005_top.png",
+      "scene": "落霞山脉",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "stone_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\落霞山脉\\block_stone_top_v2.png",
+      "target": "assets/blocks/stone/stone_006_top.png",
+      "scene": "落霞山脉",
+      "version": 2,
+      "face": "top"
+    },
+    {
+      "id": "water_001_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_water_left.png",
+      "target": "assets/blocks/water/water_001_left.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "left"
+    },
+    {
+      "id": "water_002_left",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_water_left_v2.png",
+      "target": "assets/blocks/water/water_002_left.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "left"
+    },
+    {
+      "id": "water_003_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_water_right.png",
+      "target": "assets/blocks/water/water_003_right.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "right"
+    },
+    {
+      "id": "water_004_right",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_water_right_v2.png",
+      "target": "assets/blocks/water/water_004_right.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "right"
+    },
+    {
+      "id": "water_005_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_water_top.png",
+      "target": "assets/blocks/water/water_005_top.png",
+      "scene": "特殊方块",
+      "version": 1,
+      "face": "top"
+    },
+    {
+      "id": "water_006_top",
+      "source": "assets\\blocks\\云汲仙田录\\特殊方块\\block_water_top_v2.png",
+      "target": "assets/blocks/water/water_006_top.png",
+      "scene": "特殊方块",
+      "version": 2,
+      "face": "top"
+    }
+  ]
+}
