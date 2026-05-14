@@ -1,8 +1,8 @@
 # 渲染系统开发任务清单
 
 > **对应文档：** [`rendering_system_design.md`](rendering_system_design.md)
-> **生成日期：** 2026-05-07
-> **总任务数：** 26 项 | **P0 里程碑：** 7 项 | **预计开发阶段：** 5 个
+> **生成日期：** 2026-05-07 | **最后更新：** 2026-05-13
+> **总任务数：** 27 项 | **P0 里程碑：** 8 项 | **预计开发阶段：** 5 个
 
 ---
 
@@ -11,7 +11,7 @@
 | 阶段 | 名称 | 任务数 | P0 | P1 | P2 | 关键里程碑 |
 |------|------|--------|----|----|----|-----------|
 | 一 | 基础架构 | 6 | 5 | 1 | 0 | ✅ 渲染管线基础就绪 |
-| 二 | 核心渲染功能 | 6 | 4 | 2 | 0 | ✅ 2.5D 方块世界可渲染 |
+| 二 | 核心渲染功能 | 7 | 5 | 2 | 0 | ✅ 2.5D 方块世界可渲染 |
 | 三 | 特效与后处理 | 4 | 0 | 3 | 1 | ✅ 视觉表现层完整 |
 | 四 | 性能优化 | 4 | 0 | 3 | 1 | ✅ 性能达标 |
 | 五 | 集成测试与文档 | 6 | 0 | 3 | 3 | ✅ 交付就绪 |
@@ -117,7 +117,7 @@
 
 ## 阶段二：核心渲染功能（Core Rendering Features）
 
-> **目标：** 实现场景中所有核心渲染对象——BlockSprite（2.5D 方块）、CharacterSprite（角色）、AnimationController（动画），以及 Y-Sort 排序系统。
+> **目标：** 实现场景中所有核心渲染对象——BlockSprite（2.5D 方块）、CharacterSprite 角色容器（骨骼动画驱动）、骨骼动画系统（Skeleton/Bone/Slot/SkeletalAnimationController），以及 Y-Sort 排序系统。
 
 ---
 
@@ -135,31 +135,45 @@
 
 ---
 
-### T8 — CharacterSprite 角色容器
+### T8 — CharacterSprite 角色容器（骨骼动画版）
 
 | 属性 | 内容 |
 |------|------|
-| **任务名称** | `CharacterSprite` 角色容器实现 |
-| **简要描述** | 实现角色组合体容器：`PIXI.Sprite`（身体）+ `AnimationController`（动画控制）+ `PIXI.Sprite`（阴影）+ `PIXI.Container`（血条/状态图标）。提供 `useInterpolation` 开关（默认开启，战斗时自动关闭），以及 `setGridPosition(gx, gy, gz)` 方法。 |
+| **任务名称** | `CharacterSprite` 角色容器实现（骨骼动画驱动） |
+| **简要描述** | 实现骨骼动画驱动的角色组合体容器。内部结构从"单 PIXI.Sprite + AnimationController"重构为"骨架驱动的一组插槽 Sprite + SkeletalAnimationController + 阴影 + 血条/状态图标"。提供 `useInterpolation` 开关（默认开启，战斗时自动关闭）、`setGridPosition(gx, gy, gz)` 方法、`playAnimation(name)` 方法、`changeOutfit(atlas)` 换装方法。 |
 | **优先级** | P0 |
 | **所属阶段** | 核心渲染功能 |
-| **前置依赖** | T3（LayerStack 提供挂载点）、T9（AnimationController 就绪后角色动画可用） |
-| **验收标准** | ① 角色容器包含身体、阴影、血条三层组合；② `setGridPosition` 正确移动整个容器；③ `useInterpolation` 开关开启/关闭时插值行为正确；④ 阴影位置与角色位置同步联动 |
+| **前置依赖** | T3（LayerStack 提供挂载点）、T9（SkeletalAnimationController 就绪）、T9B（Skeleton + Bone + Slot 核心骨骼数据结构就绪） |
+| **验收标准** | ① 角色容器包含插槽 Sprite 组、阴影、血条三层组合；② `setGridPosition` 正确移动整个容器；③ `playAnimation('walk')` 驱动骨骼动画正确播放；④ `useInterpolation` 开关开启/关闭时插值行为正确；⑤ `changeOutfit(newAtlas)` 正确替换纹理集；⑥ 阴影位置与角色位置同步联动 |
 | **可并行任务** | T7 |
 
 ---
 
-### T9 — AnimationController 精灵表动画控制器
+### T9 — SkeletalAnimationController 骨骼动画控制器
 
 | 属性 | 内容 |
 |------|------|
-| **任务名称** | `AnimationController` 精灵表动画控制器实现 |
-| **简要描述** | 实现低帧率（8~12 FPS）精灵表驱动动画控制器。内部维护帧计时器，每帧按 `frameDuration` 推进帧索引，切换 sprite 的 texture。动画更新放在 `variableUpdate` 中而非 `fixedUpdate`。支持暂停/恢复、帧序列配置、循环/单次模式。 |
+| **任务名称** | `SkeletalAnimationController` 骨骼动画控制器实现 |
+| **简要描述** | 实现骨骼动画控制器，替代原精灵表驱动方案。驱动骨架（Skeleton）的骨骼变换：接收 AnimationClip（关键帧序列），每帧插值生成 SkeletonPose，应用到骨架，更新世界变换。支持暂停/恢复、循环/单次模式、动作混合（`blend(name, weight)`）。动画更新放在 `variableUpdate` 中。为确保像素风格，所有旋转角度量化为 8 方向。 |
 | **优先级** | P0 |
 | **所属阶段** | 核心渲染功能 |
-| **前置依赖** | T2（PixiJS Texture 管理就绪） |
-| **验收标准** | ① 精灵表能被正确切分并按序列播放；② 动画帧率稳定在配置的 FPS（如 10 FPS）；③ `pause()` 暂停动画，`resume()` 恢复；④ 支持循环（loop）和单次播放模式；⑤ `engine:pause` 事件触发时动画暂停，`engine:resume` 恢复 |
+| **前置依赖** | T9B（Skeleton + Bone + SkeletonPose + AnimationClip 核心数据结构就绪） |
+| **验收标准** | ① 关键帧插值正确：AnimationClip 驱动骨架按预期播放动画；② 角度量化生效：骨骼旋转始终为 45° 倍数；③ `pause()` 暂停动画，`resume()` 恢复；④ 支持循环和单次播放模式；⑤ `blend('attack', 0.5)` 动作混合正确；⑥ `engine:pause` 事件触发时动画暂停，`engine:resume` 恢复；⑦ 动画事件（攻击判定帧）通过 EventBus 正确发射 |
 | **可并行任务** | T7 |
+
+---
+
+### T9B — 骨骼核心数据结构（Skeleton / Bone / SkeletonPose / AnimationClip）
+
+| 属性 | 内容 |
+|------|------|
+| **任务名称** | 骨骼系统核心数据结构实现：`Skeleton`、`Bone`、`SkeletonPose`、`AnimationClip` |
+| **简要描述** | 实现骨骼动画系统的四大核心数据结构：`Bone`（骨骼节点，含本地变换 + 父子链 + 世界变换计算）、`Skeleton`（骨骼树容器，含姿态应用和世界变换传播）、`SkeletonPose`（姿态快照，提供 `lerp()` 静态方法用于关键帧插值和动作混合）、`AnimationClip`（动画剪辑，存储关键帧序列和时间事件标记）。定义三种骨骼类型预设（humanoid/quadruped/alien），每种预设包含骨骼名称、父子关系和默认纹理映射。 |
+| **优先级** | P0 |
+| **所属阶段** | 核心渲染功能 |
+| **前置依赖** | 无（纯数据结构和数学计算，不依赖 PixiJS） |
+| **验收标准** | ① `Bone.addChild()` 正确建立骨骼父子层级；② `Skeleton.updateWorldTransform()` 递归正确计算世界变换；③ `SkeletonPose.lerp(poseA, poseB, 0.5)` 返回正确的中间姿态；④ `AnimationClip` 能正确存储和查询关键帧数据；⑤ 三种骨骼类型预设的拓扑结构定义正确（人形 7 根骨骼、四足 8 根骨骼、异形 11 根骨骼）；⑥ 新增骨骼类型只需在 `SKELETON_PRESETS` 追加一条定义 |
+| **可并行任务** | T7、T9（T9B 是 T9 的前置依赖） |
 
 ---
 
@@ -216,6 +230,20 @@
 | **前置依赖** | T8（CharacterSprite 实现）、T11（RenderNode 场景图管理） |
 | **验收标准** | ① 角色 spawn 时 CharacterSprite 正确添加到 Layer 4；② `player:moved` 事件触发后位置同步更新；③ 角色移除时 CharacterSprite 正确销毁，纹理引用释放；④ 阴影随角色同步移动 |
 | **可并行任务** | T12 |
+
+---
+
+### T13B — 骨骼纹理加载器与 BoneTextureAtlas (续上表)
+
+| 属性 | 内容 |
+|------|------|
+| **任务名称** | 骨骼纹理加载器与 `BoneTextureAtlas` 实现 |
+| **简要描述** | 实现 `BoneTextureAtlas` 类，按骨骼类型索引纹理集合。提供 `getTexture(boneName)` 和 `setTexture(boneName, texture)` 方法，支持运行时换装。实现骨骼纹理加载器，按资源约定路径加载各骨骼独立纹理文件（`res://assets/sprites/{entity}/{bone_name}.png`），并组装为 `BoneTextureAtlas`。加载附带 5 秒超时和缺失纹理的优雅降级（返回占位纹理）。 |
+| **优先级** | P1 |
+| **所属阶段** | 核心渲染功能 |
+| **前置依赖** | T2（PixiJS Texture 管理就绪）、T9B（骨骼类型预设定义） |
+| **验收标准** | ① `BoneTextureAtlas` 正确索引和返回各骨骼纹理；② `setTexture()` 运行时替换纹理成功；③ 加载器按路径规范正确加载独立纹理文件；④ 文件缺失时降级为占位纹理，不崩溃；⑤ 5 秒超时后优雅降级 |
+| **可并行任务** | T8、T9 |
 
 ---
 
@@ -410,7 +438,7 @@
 | 属性 | 内容 |
 |------|------|
 | **任务名称** | 渲染系统 API 文档与开发者指南编写 |
-| **简要描述** | 编写渲染系统 API 参考文档和开发者使用指南。覆盖：`RendererAdapter` 接口说明、`LayerStack` 使用示例、`BlockSprite` 配置与方块类型扩展、`CharacterSprite` 自定义、`AnimationController` 精灵表配置格式、`Camera2D` 配置、自定义特效注册方式。包含典型用例代码片段。 |
+| **简要描述** | 编写渲染系统 API 参考文档和开发者使用指南。覆盖：`RendererAdapter` 接口说明、`LayerStack` 使用示例、`BlockSprite` 配置与方块类型扩展、`CharacterSprite` 骨骼动画自定义、`SkeletalAnimationController` 骨骼动画配置格式、`BoneTextureAtlas` 换装接口、`Camera2D` 配置、自定义特效注册方式。包含典型用例代码片段。 |
 | **优先级** | P2 |
 | **所属阶段** | 集成测试与文档 |
 | **前置依赖** | 所有功能模块开发完成（T1~T21） |
@@ -424,7 +452,7 @@
 | 里程碑 | 关联任务 | 预期标志 |
 |--------|---------|---------|
 | **M1：渲染管线基础就绪** | T1~T6 | Canvas 可见、背景色正确、Engine 启动无报错 |
-| **M2：2.5D 方块世界可渲染** | T7~T13 | 地图网格数据可渲染为 2.5D 方块场景，角色可显示 |
+| **M2：2.5D 方块世界可渲染** | T7~T13B | 地图网格数据可渲染为 2.5D 方块场景，角色以骨骼动画显示，支持换装 |
 | **M3：视觉表现层完整** | T14~T17 | 粒子特效、伤害数字、阴影、UI 均可见且交互正确 |
 | **M4：性能达标** | T18~T21 | 大面积地图下稳定 60 FPS，对象池复用生效 |
 | **M5：交付就绪** | T22~T26 | 全量集成测试通过，API 文档完备 |
@@ -446,10 +474,14 @@ graph TD
 
     subgraph 阶段二_核心渲染功能
         T3 --> T7[BlockSprite 2.5D]
-        T2 --> T9[AnimationController]
         T3 --> T11[RenderNode 场景图管理]
         T7 --> T10[Y-Sort 排序系统]
-        T9 --> T8[CharacterSprite]
+
+        T9B[骨骼核心数据结构] --> T9[SkeletalAnimationController]
+        T9B --> T13B[骨骼纹理加载器]
+        T2 --> T13B
+        T9 --> T8[CharacterSprite 骨骼动画版]
+        T13B --> T8
         T7 --> T12[BlockRenderer 事件响应]
         T11 --> T12
         T8 --> T13[角色渲染流程]
@@ -494,14 +526,16 @@ graph TD
 | 迭代 | 周期 | 重点任务 | 目标里程碑 |
 |------|------|---------|-----------|
 | Sprint 1 | 第 1-2 周 | T1, T2, T3, T4 | 基础架构搭建 |
-| Sprint 2 | 第 3-4 周 | T5, T6, T7, T9 | 渲染管线运行 + 核心对象 |
-| Sprint 3 | 第 5-6 周 | T8, T10, T11, T12, T13 | 2.5D 方块世界可渲染（M2） |
+| Sprint 2 | 第 3-4 周 | T5, T6, T7, T9B | 渲染管线运行 + 骨骼数据结构就绪 |
+| Sprint 3 | 第 5-6 周 | T9, T13B, T8, T10, T11 | 骨骼动画 + 角色容器完成 |
 | Sprint 4 | 第 7-8 周 | T14, T15, T16, T17 | 视觉表现层完整（M3） |
 | Sprint 5 | 第 9-10 周 | T18, T19, T20, T21 | 性能达标（M4） |
 | Sprint 6 | 第 11-12 周 | T22, T23, T24, T25, T26 | 交付就绪（M5） |
 
 ---
 
-> **文档版本：** v1.0
-> **最后更新：** 2026-05-07
+> **文档版本：** v2.0
+> **最后更新：** 2026-05-13
 > **生成依据：** [`rendering_system_design.md`](rendering_system_design.md)
+> **变更记录：**
+> - v2.0：T9 从"精灵表动画控制器"重构为"骨骼动画控制器"；新增 T9B（骨骼核心数据结构）；新增 T13B（骨骼纹理加载器）；T8 内部结构相应调整；依赖关系图更新

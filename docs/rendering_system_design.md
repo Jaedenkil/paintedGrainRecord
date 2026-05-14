@@ -33,13 +33,13 @@
 
 但技术方案明确了一件事：**核心引擎代码不直接 import PixiJS**。我们在 `render/` 目录下设计一个 `RendererAdapter` 接口层，PixiJS 的实现作为适配器注入。这是为了将来万一 PixiJS 不再维护，我们可以换到 Canvas2D 或 Three.js 的 SpriteRenderer，而不动引擎核心一行代码。
 
-### 第 1 层：渲染对象管理层（Sprite / BlockSprite / AnimationController）
+### 第 1 层：渲染对象管理层（Sprite / BlockSprite / CharacterSprite / SkeletalAnimationController）
 
 这一层是"游戏对象 ←→ 可渲染对象"的映射层。每个在场景中可见的东西，最终都对应一个 `PIXI.Container` 子类实例。但关键在于：
 
 - **`BlockSprite` 是 2.5D 专有的**：它内部包含三个子 Sprite（顶面、左面、右面），对应"云汲仙田录"45° 斜视角方块的三面渲染。它的 `setGridPosition(gx, gy, gz)` 方法负责将网格坐标变换为屏幕坐标——这是整个 2.5D 渲染系统的数学基石。
-- **`AnimationController` 是精灵表的驱动引擎**：像素游戏的角色动画是 8~12 FPS 的低帧率风格，所以我们采用精灵表（spritesheet）驱动而非骨骼动画。AnimationController 内部维护一个帧计时器，每帧按 `frameDuration` 推进帧索引，切换 sprite 的 texture。这里有一个关键决策：**动画更新放在 variableUpdate 中，而非 fixedUpdate**，因为动画是视觉表现，需要跟渲染帧率走，而非物理帧率。
-- **角色在场景中不是裸 Sprite，而是 `CharacterSprite` 容器**：它组合了 `PIXI.Sprite`（身体）+ `AnimationController`（动画控制）+ `PIXI.Sprite`（阴影）+ `PIXI.Container`（血条/状态图标）。这个组合体作为一个整体添加到图层中。
+- **`SkeletalAnimationController` 是骨骼动画的驱动引擎**：角色动画采用骨骼动画系统驱动，而非传统精灵表。每个角色拥有一个骨架（`Skeleton`），由若干带父子层级关系的骨骼（`Bone`）组成，每根骨骼绑定纹理插槽（`Slot`）。动画通过关键帧插值驱动骨骼的旋转/平移/缩放，而非逐帧切换整张纹理。**动画更新仍在 variableUpdate 中**（视觉表现跟随渲染帧率），但骨骼的世界变换计算在每帧 `update()` 中执行。为确保像素风格不走样，所有旋转角度强制量化为 8 方向（45° 步进），配合 `roundPixels = true` 防止像素抖动。
+- **角色在场景中不是裸 Sprite，而是 `CharacterSprite` 容器**：重构后的 `CharacterSprite` 内部不再是单个 `PIXI.Sprite`，而是一个骨架驱动的一组插槽 Sprite + `SkeletalAnimationController`（动画控制）+ `PIXI.Sprite`（阴影）+ `PIXI.Container`（血条/状态图标）。这个组合体作为一个整体添加到图层中。
 
 ### 第 2 层：图层管理栈（LayerStack）
 
@@ -88,7 +88,7 @@ variableUpdate(dt, interp) → 渲染系统分为三个子阶段：
   2. LayerStack.render(dt, interp)
      - 遍历 0~6 层，对每层内的子对象：
        a. 视锥剔除：检查对象是否在屏幕可见范围内
-       b. AnimationController.update(dt)：推进角色/特效动画帧
+       b. CharacterSprite.update(dt, interp)：内部调用 SkeletalAnimationController.update(dt) 推进骨骼动画，更新插槽 Sprite 位置，应用位置插值
        c. Y-sort：更新对象的 zIndex（只在对象移动或新增时执行）
 
   3. RendererAdapter.render()
@@ -240,6 +240,8 @@ this.zIndex = getSortKey(gx, gy, gz)
 | `block:placed` | BlockController | 在对应层新增 BlockSprite，更新 Y-sort |
 | `block:removed` | BlockController | 从对应层移除 BlockSprite |
 | `player:moved` | PlayerController | 更新 CharacterSprite 位置，触发阴影同步 |
+| `character:animation-event` | SkeletalAnimationController | 骨骼动画关键帧事件（攻击判定、脚步声）到达时通知 CombatSystem/AudioSystem |
+| `character:outfit-changed` | CharacterSprite | 换装完成，通知状态系统更新外观 |
 | `combat:damage-dealt` | CombatSystem | 在 Effects 层生成伤害数字 Sprite（自动淡出移除） |
 | `render:dirty-rect` | 任意模块 | 标记需要局部重绘的区域 |
 | `engine:pause` | GameLoop | 暂停所有动画（AnimationController 停止推进） |
@@ -260,7 +262,7 @@ this.zIndex = getSortKey(gx, gy, gz)
 
 `Time` 类中的两个值对渲染系统至关重要：
 
-1. **`time.deltaTime`（已缩放的时间增量）**：传递给 `AnimationController.update(dt)`。这意味着当游戏暂停（`timeScale = 0`）或减速（`timeScale = 0.5`）时，角色动画也会相应放慢或停止。这提供了"子弹时间"效果：玩家释放某种时间系符箓时，所有角色的动作（包括敌人的动画）同步减速。
+1. **`time.deltaTime`（已缩放的时间增量）**：传递给 `SkeletalAnimationController.update(dt)`。这意味着当游戏暂停（`timeScale = 0`）或减速（`timeScale = 0.5`）时，角色骨骼动画的帧进度也会相应放慢或停止。这提供了"子弹时间"效果：玩家释放某种时间系符箓时，所有角色的动作（包括敌人的动画）同步减速。
 
 2. **插值因子 interp**：作为 variableUpdate 的第二个参数传入渲染系统。它的作用是平滑两个 fixedUpdate 之间的视觉表现。如上所述，渲染系统将 interp 传递给每个 CharacterSprite，用于在物理位置之间做线性插值。
 
@@ -275,7 +277,7 @@ this.zIndex = getSortKey(gx, gy, gz)
 **渲染系统是一个分层驱动、事件驱动、时间感知的视觉流水线**。它由四个层次组成：
 
 - **底层**：PixiJS 封装的 WebGL 渲染上下文（RendererAdapter），提供硬件加速的批处理和纹理管理；
-- **中层**：BlockSprite、CharacterSprite、AnimationController 等渲染对象工厂，将游戏逻辑实体映射为可渲染的显示对象；
+- **中层**：BlockSprite、CharacterSprite、SkeletalAnimationController、Bone、Slot 等渲染对象工厂，将游戏逻辑实体映射为可渲染的显示对象；
 - **上层**：LayerStack（8 层固定层 + 层内 Y-sort 动态排序）和 Camera2D（带指数平滑跟随的视口变换器），构成渲染管线的主干；
 - **最顶层**：与 Engine 的 GameLoop 集成点（以 variable 类型 System 注册），接收 dt 和 interp 两个时间参数。
 
@@ -294,9 +296,122 @@ this.zIndex = getSortKey(gx, gy, gz)
 1. **RendererAdapter 接口**允许未来替换 PixiJS 为其他渲染后端
 2. **LayerStack 的层数**可以扩展（但 8 层对当前项目已足够）
 3. **SpritePool 对象池**为后期大量弹幕/特效场景做好了性能准备
+4. **骨骼动画系统**（Skeleton + Bone + Slot + SkeletalAnimationController）支持运行时换装、动作混合、多骨骼类型扩展
 
 ---
 
-> **文档版本：** v1.0
-> **最后更新：** 2026-05-06
+## 八、骨骼动画系统架构（新增）
+
+> 本节详细描述骨骼动画系统的架构设计。该设计替代了原精灵表驱动的 `AnimationController`。
+
+### 8.1 设计理念
+
+骨骼动画系统的设计遵循三条原则：
+
+1. **骨骼与表现分离**：`Bone` 只管理变换（位置/旋转/缩放），`Slot` 管理纹理绑定。同一副骨架换一套纹理集即是一个新角色。
+2. **像素安全优先**：所有骨骼旋转量化为 8 方向（45° 步进），从根源上消除"像素走样"（pixel creep）。牺牲自由旋转自由度，换取像素视觉的一致性。
+3. **动画数据压缩**：关键帧插值（keyframe interpolation）替代逐帧序列，存储量从"帧数 × 全尺寸纹理"降为"关键帧数 × 几组浮点数"。
+
+### 8.2 核心数据流
+
+```
+AnimationClip (关键帧序列)
+       ↓
+SkeletalAnimationController.update(dt)
+       ↓ 关键帧插值
+SkeletonPose (当前帧各骨骼变换快照)
+       ↓ applyPose()
+Skeleton (骨骼树)
+       ↓ updateWorldTransform()
+各 Bone 的世界变换矩阵
+       ↓ 插槽映射
+Slot Sprite 位置/旋转更新
+```
+
+### 8.3 核心类/接口
+
+| 类 | 模块 | 职责 |
+|---|------|------|
+| `Bone` | `core/Bone.mjs` | 骨骼节点：本地变换 + 父子链 + 世界变换计算 |
+| `Skeleton` | `core/Skeleton.mjs` | 骨架：骨骼树 + 姿态应用 + 世界变换传播 |
+| `SkeletonPose` | `core/SkeletonPose.mjs` | 姿态快照：用于关键帧插值和动作混合 |
+| `AnimationClip` | `core/AnimationClip.mjs` | 动画剪辑：关键帧序列 + 事件标记 |
+| `SkeletalAnimationController` | `render/SkeletalAnimationController.mjs` | 动画控制器：驱动骨架播放/暂停/混合 |
+| `Slot` | `render/Slot.mjs` | 纹理插槽：绑定纹理到骨骼 + 渲染偏移 |
+| `BoneTextureAtlas` | `render/BoneTextureAtlas.mjs` | 骨骼纹理集：按骨骼类型索引纹理集合 |
+
+### 8.4 骨骼类型预设
+
+当前支持三种骨骼类型，定义在 `SKELETON_PRESETS` 中：
+
+- **`humanoid`（人形）**：root → spine → head / arm_l / arm_r / leg_l / leg_r。适用于玩家、人形 NPC。
+- **`quadruped`（四足兽形）**：root → body → head / leg_fl / leg_fr / leg_bl / leg_br / tail。适用于狼妖、虎妖等。
+- **`alien`（异形）**：多肢 + 翅膀骨架。适用于 Boss、特殊敌人。
+
+扩展新类型只需在 `SKELETON_PRESETS` 追加一条骨骼定义。
+
+### 8.5 与渲染管线的集成
+
+骨骼动画系统与渲染管线的集成点如下：
+
+| 集成点 | 说明 |
+|--------|------|
+| `CharacterSprite.update(dt, interp)` | 在 LayerStack.render 阶段被调用，内部驱动骨骼动画和位置插值 |
+| `CharacterSprite` 对外契约不变 | `setGridPosition(gx, gy, gz)`、`useInterpolation`、`destroy()` 接口与重构前一致 |
+| `LayerStack` 不需要改动 | `CharacterSprite` 仍是 `PIXI.Container`，直接 `addToLayer(4, characterSprite)` |
+| `Y-Sort` 不受影响 | 骨架插槽子节点从属于 `CharacterSprite` 容器，容器整体设置 `zIndex` |
+| `EventBus` 新增事件 | `character:animation-event`（动画事件帧通知）、`character:outfit-changed`（换装通知） |
+
+### 8.6 像素保护措施
+
+```javascript
+/**
+ * 角度量化——将任意角度映射到最近的 8 方向角度。
+ * 这是防止像素走样的核心措施。
+ *
+ * 传统的骨骼动画允许任意角度旋转，但在像素风格中，
+ * 任意角度的纹理旋转会导致边缘锯齿漂移（pixel creep）。
+ * 通过强制角度为 45° 倍数，配合 PIXI 的 roundPixels，
+ * 可以保持像素画的视觉一致性。
+ */
+function quantizeAngle(degrees) {
+    const snapped = Math.round(degrees / 45) * 45;
+    return ((snapped % 360) + 360) % 360;
+}
+```
+
+### 8.7 扩展性预留
+
+| 扩展场景 | 预留设计 |
+|---------|---------|
+| **新增骨骼类型** | 在 `SKELETON_PRESETS` 追加一条定义即可 |
+| **动作混合** | `SkeletonPose.lerp()` 提供基础插值骨架；按骨骼名称过滤可实现"下身 idle + 上身 attack"的局部混合 |
+| **换装系统** | `BoneTextureAtlas.setTexture()` 支持运行时替换任意骨骼纹理 |
+| **挂载点（武器/特效）** | 骨骼的 `worldEndX/Y` 提供挂载坐标，武器可作为额外 Slot 绑定到指定骨骼 |
+| **多角色变体** | 相同骨骼类型 + 不同纹理集 = 视觉不同的角色 |
+
+### 8.8 资源约定
+
+骨骼动画的纹理资源约定：
+
+```
+res://assets/sprites/{entity}/skeleton.json         # 骨架定义
+res://assets/sprites/{entity}/{bone_name}.png        # 各骨骼纹理（独立文件）
+
+# 示例：玩家角色
+res://assets/sprites/player/skeleton.json
+res://assets/sprites/player/head.png
+res://assets/sprites/player/body.png
+res://assets/sprites/player/arm_l.png
+res://assets/sprites/player/arm_r.png
+res://assets/sprites/player/leg_l.png
+res://assets/sprites/player/leg_r.png
+```
+
+---
+
+> **文档版本：** v2.0
+> **最后更新：** 2026-05-13
 > **编写者：** Finch（游戏引擎架构师）
+> **变更记录：**
+> - v2.0：T9 从精灵表动画控制器重构为骨骼动画控制器；T8 CharacterSprite 内部结构相应调整；新增第 8 节"骨骼动画系统架构"（详见 [Task T8/T9 设计方案讨论](./rendering_system_tasks.md#T8--CharacterSprite-角色容器)）

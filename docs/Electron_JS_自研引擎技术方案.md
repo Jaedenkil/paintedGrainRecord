@@ -342,7 +342,7 @@ export class Time {
 |------|---------|------|
 | 底层渲染 | **PixiJS v8+** | WebGL 2D 渲染性能最佳、MIT 许可、社区活跃 |
 | 精灵系统 | PixiJS `Sprite` + 自研组件封装 | 需扩展 2.5D 坐标变换 |
-| 动画系统 | 自研 `AnimationController` + 精灵表驱动 | 像素风格需求，需精确帧控制 |
+| 动画系统 | 自研 `SkeletalAnimationController` + 骨骼驱动（Bone/Skeleton/Slot） | 像素风格骨骼动画，支持多骨骼类型（人形/兽形/异形）和运行时换装 |
 | 图层系统 | 自研 `LayerStack`（基于 PixiJS Container） | 8 层渲染体系 |
 | 相机系统 | 自研 `Camera2D`（基于 PixiJS Container 变换） | 2.5D 视口、跟随、缩放 |
 | 粒子系统 | PixiJS ParticleContainer + 自研发射器 | 符箓特效、天气系统 |
@@ -647,116 +647,181 @@ export class Camera2D {
 }
 ```
 
-#### 2.2.6 动画系统
+#### 2.2.6 动画系统（骨骼动画）
 
+> **设计变更（v2.0）：** 原精灵表驱动方案已替换为骨骼动画系统。以下为最终采用的骨骼动画架构。
+
+骨骼动画系统由四大核心数据结构（`core/` 层）和两大运行时模块（`render/` 层）组成：
+
+```
+core/                       # 纯数据层（不依赖 PixiJS）
+  Bone.mjs                  # 骨骼节点
+  Skeleton.mjs              # 骨架
+  SkeletonPose.mjs          # 姿态快照
+  AnimationClip.mjs         # 动画剪辑（关键帧序列）
+
+render/                     # 渲染层（绑定 PixiJS）
+  SkeletalAnimationController.mjs  # 骨骼动画控制器
+  Slot.mjs                  # 纹理插槽
+  BoneTextureAtlas.mjs      # 骨骼纹理集
+```
+
+核心数据结构 —— Bone 和 Skeleton：
 ```javascript
-// src/engine/render/AnimationController.js
+// src/engine/core/Bone.mjs
 
 /**
- * 精灵表动画控制器
- *
- * 资源约定:
- *   res://assets/sprites/{entity}_{action}_{frame}.png
- *   或单个精灵表: res://assets/sprites/{entity}_{action}_sheet.png
+ * 骨骼节点——骨架树中的一个节点。
+ * 骨骼本身不包含纹理，纹理由插槽（Slot）绑定。
  */
-export class AnimationController {
-    /**
-     * @param {PIXI.Sprite} sprite - 要控制的目标精灵
-     */
-    constructor(sprite) {
-        /** @private */
-        this._sprite = sprite;
-        /** @private */
+export class Bone {
+    constructor(name, { x = 0, y = 0, rotation = 0, scaleX = 1, scaleY = 1, length = 16 } = {}) {
+        this.name = name;
+        this._local = { x, y, rotation, scaleX, scaleY };
+        this._world = { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 };
+        this._children = [];
+        this._parent = null;
+        this.length = length; // 骨骼长度，用于子骨骼挂载点
+    }
+
+    addChild(bone) { bone._parent = this; this._children.push(bone); }
+
+    /** 递归计算世界变换 */
+    updateWorldTransform() {
+        if (this._parent) {
+            const pw = this._parent._world;
+            // 本地位置旋转后叠加到父骨骼世界末端
+            const cos = Math.cos(pw.rotation * Math.PI / 180);
+            const sin = Math.sin(pw.rotation * Math.PI / 180);
+            this._world.x = pw.x + this._local.x * cos - this._local.y * sin;
+            this._world.y = pw.y + this._local.x * sin + this._local.y * cos;
+            this._world.rotation = quantizeAngle(pw.rotation + this._local.rotation);
+            this._world.scaleX = pw.scaleX * this._local.scaleX;
+            this._world.scaleY = pw.scaleY * this._local.scaleY;
+        } else {
+            Object.assign(this._world, this._local);
+        }
+        for (const child of this._children) child.updateWorldTransform();
+    }
+
+    /** 设置本地旋转，角度自动量化为 8 方向 */
+    setRotation(degrees) { this._local.rotation = quantizeAngle(degrees); }
+}
+
+/** 角度量化——像素风格保护 */
+function quantizeAngle(degrees) {
+    return ((Math.round(degrees / 45) * 45) % 360 + 360) % 360;
+}
+```
+
+骨架类型预设：
+```javascript
+// src/engine/core/Skeleton.mjs — 部分
+
+export const SkeletonType = Object.freeze({
+    HUMANOID: 'humanoid',     // 人形
+    QUADRUPED: 'quadruped',   // 四足兽形
+    ALIEN: 'alien'            // 异形
+});
+
+export const SKELETON_PRESETS = {
+    [SkeletonType.HUMANOID]: {
+        bones: [
+            { name: 'root', parent: null },
+            { name: 'spine', parent: 'root', x: 0, y: -8, length: 16 },
+            { name: 'head', parent: 'spine', x: 0, y: -12 },
+            { name: 'arm_l', parent: 'spine', x: -4, y: -4, length: 12 },
+            { name: 'arm_r', parent: 'spine', x: 4, y: -4, length: 12 },
+            { name: 'leg_l', parent: 'root', x: -3, y: 4, length: 14 },
+            { name: 'leg_r', parent: 'root', x: 3, y: 4, length: 14 },
+        ]
+    },
+    [SkeletonType.QUADRUPED]: {
+        bones: [
+            { name: 'root', parent: null },
+            { name: 'body', parent: 'root', x: 0, y: -4, length: 20 },
+            { name: 'head', parent: 'body', x: 12, y: -4 },
+            { name: 'leg_fl', parent: 'body', x: 6, y: 4, length: 12 },
+            { name: 'leg_fr', parent: 'body', x: 8, y: 4, length: 12 },
+            { name: 'leg_bl', parent: 'body', x: -6, y: 4, length: 12 },
+            { name: 'leg_br', parent: 'body', x: -4, y: 4, length: 12 },
+            { name: 'tail', parent: 'body', x: -10, y: 0, length: 10 },
+        ]
+    }
+};
+```
+
+骨骼动画控制器（驱动层）：
+```javascript
+// src/engine/render/SkeletalAnimationController.mjs
+
+/**
+ * 骨骼动画控制器——驱动骨架的动画播放。
+ * 替代原精灵表驱动的 AnimationController。
+ *
+ * 核心逻辑：
+ * 1. 持有 Skeleton 引用
+ * 2. 每帧按时间推进，对 AnimationClip 的关键帧插值
+ * 3. 生成 SkeletonPose，应用到骨架
+ * 4. 骨架递归更新世界变换
+ *
+ * 动画更新在 variableUpdate 中执行。所有旋转量化为 8 方向。
+ */
+export class SkeletalAnimationController {
+    constructor(skeleton) {
+        this._skeleton = skeleton;
         this._animations = new Map(); // name -> AnimationClip
-        /** @private */
-        this._currentAnim = null;
-        /** @private */
-        this._currentFrame = 0;
-        /** @private */
-        this._frameTimer = 0;
-        /** @private */
+        this._currentClip = null;
+        this._elapsed = 0;
         this._speed = 1.0;
-        /** @private */
         this._loop = true;
-        /** @private */
         this._onComplete = null;
     }
 
-    /**
-     * 注册动画剪辑
-     * @param {string} name - 动画名 (e.g. 'idle', 'run', 'attack')
-     * @param {AnimationClip} clip
-     */
-    register(name, clip) {
-        this._animations.set(name, clip);
-    }
+    register(name, clip) { this._animations.set(name, clip); }
 
-    /**
-     * 播放动画
-     * @param {string} name
-     * @param {Object} [options]
-     * @param {number} [options.speed=1.0]
-     * @param {boolean} [options.loop=true]
-     * @param {() => void} [options.onComplete]
-     */
     play(name, { speed = 1.0, loop = true, onComplete = null } = {}) {
-        if (!this._animations.has(name)) {
-            console.warn(`Animation "${name}" not registered`);
-            return;
-        }
-        this._currentAnim = this._animations.get(name);
-        this._currentFrame = 0;
-        this._frameTimer = 0;
+        if (!this._animations.has(name)) return;
+        this._currentClip = this._animations.get(name);
+        this._elapsed = 0;
         this._speed = speed;
         this._loop = loop;
         this._onComplete = onComplete;
-
-        this._applyFrame();
     }
 
-    /**
-     * 每帧更新
-     * @param {number} dt
-     */
+    /** 每帧更新——关键帧插值 */
     update(dt) {
-        if (!this._currentAnim) return;
+        if (!this._currentClip) return;
+        this._elapsed += dt * this._speed;
 
-        this._frameTimer += dt * this._speed;
-
-        const frameDuration = this._currentAnim.frameDuration;
-        while (this._frameTimer >= frameDuration) {
-            this._frameTimer -= frameDuration;
-            this._currentFrame++;
-
-            if (this._currentFrame >= this._currentAnim.frames.length) {
-                if (this._loop) {
-                    this._currentFrame = 0;
-                } else {
-                    this._currentFrame = this._currentAnim.frames.length - 1;
-                    this._frameTimer = 0;
-                    this._onComplete?.();
-                    // 自动停止
-                    return;
-                }
-            }
-
-            this._applyFrame();
+        const dur = this._currentClip.duration;
+        if (this._elapsed >= dur) {
+            if (this._loop) { this._elapsed %= dur; }
+            else { this._elapsed = dur; this._onComplete?.(); return; }
         }
-    }
 
-    /** @private */
-    _applyFrame() {
-        if (!this._currentAnim) return;
-        const frame = this._currentAnim.frames[this._currentFrame];
-        this._sprite.texture = frame.texture;
-        if (frame.offset) {
-            this._sprite.anchor.set(frame.offset.x, frame.offset.y);
-        }
+        // 对每根骨骼插值两帧间的变换
+        const pose = this._currentClip.sample(this._elapsed);
+        this._skeleton.applyPose(pose);
+        this._skeleton.updateWorldTransform();
     }
+}
+```
 
-    /** 停止当前动画 */
-    stop() {
-        this._currentAnim = null;
+骨骼纹理资源约定：
+```
+res://assets/sprites/{entity}/skeleton.json         # 骨架定义
+res://assets/sprites/{entity}/{bone_name}.png        # 各骨骼独立纹理
+
+示例：
+res://assets/sprites/player/skeleton.json            # 玩家骨架
+res://assets/sprites/player/head.png                 # 头部纹理
+res://assets/sprites/player/body.png                 # 躯干纹理
+res://assets/sprites/player/arm_l.png                # 左臂
+res://assets/sprites/player/arm_r.png                # 右臂
+res://assets/sprites/player/leg_l.png                # 左腿
+res://assets/sprites/player/leg_r.png                # 右腿
+```
         this._currentFrame = 0;
         this._frameTimer = 0;
     }
@@ -3916,7 +3981,9 @@ CloudGrainRecord/
 │   │   │   ├── LayerStack.js        # 图层系统
 │   │   │   ├── Camera2D.js          # 相机系统
 │   │   │   ├── BlockSprite.js       # 2.5D 方块精灵
-│   │   │   ├── AnimationController.js # 动画控制器
+│   │   │   ├── SkeletalAnimationController.js # 骨骼动画控制器（替代原 AnimationController）
+│   │   │   ├── Slot.js              # 骨骼纹理插槽
+│   │   │   ├── BoneTextureAtlas.js  # 骨骼纹理集
 │   │   │   ├── ParticleSystem.js    # 粒子系统
 │   │   │   ├── BatchRenderer.js     # 批处理渲染
 │   │   │   └── DirtyRectManager.js  # 脏矩形优化
