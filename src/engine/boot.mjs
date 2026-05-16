@@ -103,67 +103,40 @@ try {
     emitProgress(PROGRESS_STEPS[4].pct, PROGRESS_STEPS[4].label);
 
     // ──────────────────────────────────────────────
-    // 渲染管线验证：通过 BlockRenderer 批量构建 2.5D 等轴地图
-    // 目的：端到端验证 网格扫描 → 批量纹理加载 → 等轴变换 → 图层分流 → Y-Sort 排序
+    // 渲染管线验证：通过 VoxelWorld + SimpleWorldGenerator 构建 2.5D 等轴场景
+    // 目的：端到端验证 体素数据层 → 网格扫描 → 批量纹理加载 → 等轴变换 → 图层分流 → Y-Sort 排序
     // ──────────────────────────────────────────────
     const { BlockRenderer } = await import('./render/BlockRenderer.mjs');
-
-    // ── 多素材平面地图（15×11，展示 14 种可用素材）──
-    // 数据格式：gridData[y][x] = blockType | null
-    // 布局说明：
-    //   左上 → 草地与耕地混合区域
-    //   中上 → 砖石建筑区
-    //   右上 → 沙地与仙人掌/石柱过渡
-    //   左下 → 森林泥土地
-    //   中下 → 水塘环绕玉台
-    //   右下 → 雪地与特殊材质区
-    const demoGrid = [
-        //  0         1         2         3         4         5         6         7         8         9         10        11        12        13        14
-        ['grass',  'grass',  'grass',  'farm',   'farm',   'farm',   'brick',  'brick',  'brick',  'sand',   'sand',   'sand',   'sand',   'snow',   'snow'  ],
-        ['grass',  'grass',  'farm',   'farm',   'farm',   'farm',   'brick',  'brick',  'brick',  'sand',   'sand',   'stone',  'sand',   'snow',   'snow'  ],
-        ['grass',  'dirt',   'dirt',   'grass',  'farm',   'brick',  'brick',  'roof',   'roof',   'sand',   'sand',   'stone',  'stone',  'snow',   'cloud' ],
-        ['grass',  'dirt',   'dirt',   'grass',  'farm',   'brick',  'roof',   'roof',   'roof',   'plank',  'sand',   'sand',   'stone',  'snow',   'cloud' ],
-        ['dirt',   'dirt',   'dirt',   'grass',  'farm',   'brick',  'brick',  'roof',   'brick',  'plank',  'plank',  'jade',   'jade',   'snow',   'cloud' ],
-        ['dirt',   'dirt',   'grass',  'grass',  'water',  'water',  'water',  'jade',   'water',  'water',  'water',  'jade',   'jade',   'jade',   'jade'  ],
-        ['dirt',   'dirt',   'grass',  'water',  'water',  'jade',   'jade',   'jade',   'jade',   'jade',   'water',  'water',  'jade',   'jade',   'jade'  ],
-        ['dirt',   'grass',  'grass',  'water',  'water',  'water',  'jade',   'jade',   'jade',   'water',  'water',  'magma',  'magma',  'magma',  'jade'  ],
-        ['grass',  'grass',  'plank',  'plank',  'plank',  'plank',  'water',  'water',  'water',  'water',  'magma',  'magma',  'magma',  'magma',  'cloud' ],
-        ['grass',  'grass',  'plank',  'plank',  'plank',  'plank',  'water',  'water',  'water',  'magma',  'magma',  'snow',   'snow',   'cloud',  'cloud' ],
-        ['grass',  'grass',  'grass',  'plank',  'plank',  'water',  'water',  'water',  'magma',  'magma',  'snow',   'snow',   'snow',   'cloud',  'cloud' ],
-    ];
+    const { buildVoxelDemoScene } = await import('./voxel/VoxelDemoScene.mjs');
 
     const renderer = new BlockRenderer(renderSystem.layerStack);
-    await renderer.buildFromGrid(demoGrid, {
-        useIsoTransform: true,
-        useAssembled: false,
-        interpolation: 'nearest',
-        onProgress: (pct, label) => {
-            emitProgress(0.45 + pct * 0.25, label);
-        }
+
+    // 构建体素世界演示场景
+    const { gridWidth, gridHeight } = await buildVoxelDemoScene(renderer, {
+        seed: 42,
+        terrainHeight: 1,
+        terrainBlockId: 1,  // grass
+        radius: 1           // 3×3 Chunk = 48×48 网格
     });
 
-    Logger.info(`✅ BlockRenderer 场景构建完成: ${renderer.blockCount} 个方块`);
+    Logger.info(`✅ VoxelDemoScene 场景构建完成: ${renderer.blockCount} 个方块, ${gridWidth}×${gridHeight}`);
 
     // ──── 初始显示所有方块，便于观察网格与物块贴合效果 ────
-    // 物块默认显示，通过 window.__toggleBlocks() 可随时切换显隐。
     renderer.setBlocksVisible(true);
 
     // ──────────────────────────────────────────────
-    // 相机定位 — 将视口中心对准 15×11 大地图的几何中心
+    // 相机定位 — 将视口中心对准体素地图的几何中心
     // 等轴坐标变换：screenX = (gx - gy) * TILE_HALF_W, screenY = (gx + gy) * TILE_HALF_H
     // TILE_HALF_W = 12 (ROTATED_SIZE/2), TILE_HALF_H = 6 (TOP_HEIGHT/2)
-    // 地图中心网格坐标：(7, 5) ≈ ((15-1)/2, (11-1)/2)
     // ──────────────────────────────────────────────
-    const MAP_COLS = 15;
-    const MAP_ROWS = 11;
     const TILE_HALF_W = 12;
     const TILE_HALF_H = 6;
-    const centerGx = (MAP_COLS - 1) / 2;  // 7
-    const centerGy = (MAP_ROWS - 1) / 2;  // 5
-    const centerScreenX = (centerGx - centerGy) * TILE_HALF_W;  // 24
-    const centerScreenY = (centerGx + centerGy) * TILE_HALF_H; // 72
+    const centerGx = (gridWidth - 1) / 2;
+    const centerGy = (gridHeight - 1) / 2;
+    const centerScreenX = (centerGx - centerGy) * TILE_HALF_W;
+    const centerScreenY = (centerGx + centerGy) * TILE_HALF_H;
     renderSystem.camera.moveToImmediate(centerScreenX, centerScreenY);
-    Logger.info(`相机已定位至地图中心: screen(${centerScreenX}, ${centerScreenY})`);
+    Logger.info(`相机已定位至地图中心: screen(${centerScreenX}, ${centerScreenY}), grid(${gridWidth}×${gridHeight})`);
 
     // 暴露到全局（用于 DevTools 交互测试）
     window.__renderer = renderer;
@@ -176,7 +149,7 @@ try {
     const app = renderSystem.adapter.getApp();
     const cameraContainer = app.stage.getChildByName('CameraContainer');
 
-    const gridOverlay = new IsoGridOverlay(15, 11, {
+    const gridOverlay = new IsoGridOverlay(gridWidth, gridHeight, {
         visible: false,     // 默认隐藏，hover 物块时显示高亮
         alpha: 0.35,
         color: 0xd4a847,

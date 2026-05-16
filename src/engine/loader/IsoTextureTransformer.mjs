@@ -34,6 +34,87 @@ import {
     computeBoundingBox
 } from '../utils/ImageDataUtils.mjs';
 
+// ==================== 纹理缓存 ====================
+
+/**
+ * URL → ImageData 缓存。
+ * 避免同一 URL 在多次 batchLoadAndTransform 调用中重复加载。
+ * @private
+ */
+const _urlImageCache = new Map();
+
+/**
+ * 变换结果缓存。
+ * key 格式: `${blockType}:${interpolation}:${fixEdges}:${includeAssembled}`
+ * 或 `${urls}:${options}` (用于 loadAndTransformBlock)
+ * @private
+ */
+const _transformedCache = new Map();
+
+/** @private 缓存命中统计 */
+let _cacheHits = 0;
+/** @private 缓存未命中统计 */
+let _cacheMisses = 0;
+
+/**
+ * 生成变换缓存的标准化键。
+ * @private
+ * @param {string} id - 标识符（blockType 或 URL 组合）
+ * @param {Object} [options]
+ * @param {'nearest'|'bilinear'} [options.interpolation='nearest']
+ * @param {boolean} [options.fixEdges=false]
+ * @param {boolean} [options.includeAssembled=true]
+ * @returns {string}
+ */
+function _makeCacheKey(id, options = {}) {
+    const { interpolation = 'nearest', fixEdges: fe = false, includeAssembled = true } = options;
+    return `${id}:${interpolation}:${fe ? '1' : '0'}:${includeAssembled ? '1' : '0'}`;
+}
+
+/**
+ * 清除所有纹理缓存和统计计数器。
+ *
+ * 在运行时切换纹理集、热重载资源或重建场景时调用，
+ * 确保下次 batchLoadAndTransform 调用重新加载并变换所有纹理。
+ *
+ * @example
+ * ```js
+ * import { clearTextureCache } from './IsoTextureTransformer.mjs';
+ * clearTextureCache();
+ * // 下次 batchLoadAndTransform() 将完全重新计算
+ * ```
+ */
+export function clearTextureCache() {
+    _urlImageCache.clear();
+    _transformedCache.clear();
+    _cacheHits = 0;
+    _cacheMisses = 0;
+}
+
+/**
+ * 获取纹理缓存的命中/未命中统计，用于性能监控和调试。
+ *
+ * @returns {{ hits: number, misses: number, hitRate: string, urlCacheSize: number, transformedCacheSize: number }}
+ *
+ * @example
+ * ```js
+ * import { getTextureCacheStats } from './IsoTextureTransformer.mjs';
+ * console.table(getTextureCacheStats());
+ * // { hits: 42, misses: 14, hitRate: '75.0%', urlCacheSize: 7, transformedCacheSize: 14 }
+ * ```
+ */
+export function getTextureCacheStats() {
+    const total = _cacheHits + _cacheMisses;
+    const hitRate = total > 0 ? ((_cacheHits / total) * 100).toFixed(1) + '%' : 'N/A';
+    return {
+        hits: _cacheHits,
+        misses: _cacheMisses,
+        hitRate,
+        urlCacheSize: _urlImageCache.size,
+        transformedCacheSize: _transformedCache.size
+    };
+}
+
 // ==================== 常量定义 ====================
 
 /** 源纹理标准尺寸（像素） */
@@ -643,12 +724,30 @@ export function batchTransformBlocks(textureMap, options = {}) {
  * ```
  */
 export async function loadAndTransformBlock(topUrl, leftUrl, rightUrl, options = {}) {
+    // ── 尝试从变换缓存获取 ──
+    const cacheKey = _makeCacheKey(`single:${topUrl}|${leftUrl}|${rightUrl}`, options);
+    if (_transformedCache.has(cacheKey)) {
+        _cacheHits++;
+        return _transformedCache.get(cacheKey);
+    }
+    _cacheMisses++;
+
     const { imageDataFromUrl } = await import('../utils/ImageDataUtils.mjs');
 
+    // ── 带 URL 缓存的图片加载 ──
+    const loadImage = async (url) => {
+        if (_urlImageCache.has(url)) {
+            return _urlImageCache.get(url);
+        }
+        const imgData = await imageDataFromUrl(url);
+        _urlImageCache.set(url, imgData);
+        return imgData;
+    };
+
     const [topRaw, leftRaw, rightRaw] = await Promise.all([
-        imageDataFromUrl(topUrl),
-        imageDataFromUrl(leftUrl),
-        imageDataFromUrl(rightUrl)
+        loadImage(topUrl),
+        loadImage(leftUrl),
+        loadImage(rightUrl)
     ]);
 
     const top   = transformTopFace(topRaw, options);
@@ -656,7 +755,9 @@ export async function loadAndTransformBlock(topUrl, leftUrl, rightUrl, options =
     const right = shearToParallelogram(rightRaw, 'right');
     const assembled = assembleBlock(top, left, right);
 
-    return { top, left, right, assembled };
+    const result = { top, left, right, assembled };
+    _transformedCache.set(cacheKey, result);
+    return result;
 }
 
 /**
@@ -679,24 +780,58 @@ export async function loadAndTransformBlock(topUrl, leftUrl, rightUrl, options =
 export async function batchLoadAndTransform(blockTextureMap, options = {}) {
     const { imageDataFromUrl } = await import('../utils/ImageDataUtils.mjs');
 
-    /** @type {Object<string, { top: ImageData, left: ImageData, right: ImageData }>} */
-    const rawMap = {};
+    /** @type {Object<string, { top: ImageData, left: ImageData, right: ImageData, assembled?: ImageData }>} */
+    const result = {};
+    /** @type {string[]} 需要实际加载和变换的 blockType */
+    const toProcess = [];
 
-    // 并行加载所有图片
-    const loadPromises = [];
-    for (const [type, paths] of Object.entries(blockTextureMap)) {
-        loadPromises.push(
-            Promise.all([
-                imageDataFromUrl(paths.top),
-                imageDataFromUrl(paths.left),
-                imageDataFromUrl(paths.right)
-            ]).then(([top, left, right]) => {
-                rawMap[type] = { top, left, right };
-            })
-        );
+    // ── 第一阶段：检查变换缓存，只处理未缓存的类型 ──
+    for (const blockType of Object.keys(blockTextureMap)) {
+        const cacheKey = _makeCacheKey(blockType, options);
+        if (_transformedCache.has(cacheKey)) {
+            _cacheHits++;
+            result[blockType] = _transformedCache.get(cacheKey);
+        } else {
+            _cacheMisses++;
+            toProcess.push(blockType);
+        }
     }
-    await Promise.all(loadPromises);
 
-    // 批量变换
-    return batchTransformBlocks(rawMap, options);
+    // ── 第二阶段：仅加载和变换未缓存的类型 ──
+    if (toProcess.length > 0) {
+        /** @type {Object<string, { top: ImageData, left: ImageData, right: ImageData }>} */
+        const rawMap = {};
+
+        // 带 URL 缓存的并行加载
+        const loadPromises = toProcess.map(async (type) => {
+            const paths = blockTextureMap[type];
+
+            const loadImage = async (url) => {
+                if (_urlImageCache.has(url)) {
+                    return _urlImageCache.get(url);
+                }
+                const imgData = await imageDataFromUrl(url);
+                _urlImageCache.set(url, imgData);
+                return imgData;
+            };
+
+            const [top, left, right] = await Promise.all([
+                loadImage(paths.top),
+                loadImage(paths.left),
+                loadImage(paths.right)
+            ]);
+            rawMap[type] = { top, left, right };
+        });
+        await Promise.all(loadPromises);
+
+        // 变换并缓存
+        const transformed = batchTransformBlocks(rawMap, options);
+        for (const type of toProcess) {
+            const cacheKey = _makeCacheKey(type, options);
+            _transformedCache.set(cacheKey, transformed[type]);
+            result[type] = transformed[type];
+        }
+    }
+
+    return result;
 }

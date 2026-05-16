@@ -21,7 +21,8 @@
  */
 
 import { TILE_HALF_W, TILE_HALF_H } from './BlockSprite.mjs';
-import { ROTATED_SIZE, TOP_HEIGHT } from '../loader/IsoTextureTransformer.mjs';
+import { BLOCK_TOP_OFFSET } from './block/BlockConstants.mjs';
+import { ROTATED_SIZE, TOP_HEIGHT, SIDE_HEIGHT, SRC_SIZE } from '../loader/IsoTextureTransformer.mjs';
 
 // ==================== 色彩常量（瘦金体·极简华贵）====================
 
@@ -33,6 +34,9 @@ const GOLD_DARK = 0x8b6f3c;
 
 /** 点金光 — 高亮中心点 */
 const GOLD_ACCENT = 0xffd966;
+
+/** 铜金 — 垂直面下边缘斜线色（暖金偏铜，区别于耀金与暗金） */
+const EDGE_COPPER = 0xc9953e;
 
 /** 辉光层透明度 */
 const GLOW_ALPHA = 0.12;
@@ -338,13 +342,14 @@ export class IsoGridOverlay {
         return this;
     }
 
-    // ==================== 单格高亮 ====================
+    // ==================== 单格高亮（旧版菱形完整边框） ====================
 
     /**
-     * 高亮指定格子的菱形边框。
+     * 高亮指定格子的菱形完整边框（旧版）。
      *
      * 使用独立的 _highlightGraphics 层绘制，不影响主网格。
      * 重复调用同一格子幂等（已高亮则跳过）。
+     * 新的 hover 反馈请使用 {@link highlightBlockEdges} + {@link highlightColumn}。
      *
      * @param {number} gx - 格子 X 坐标
      * @param {number} gy - 格子 Y 坐标
@@ -368,7 +373,7 @@ export class IsoGridOverlay {
 
     /**
      * 清除当前高亮。
-     * 移除高亮层绘制的所有内容。
+     * 移除高亮层绘制的所有内容（包括金角描边和列切片）。
      *
      * @returns {this}
      *
@@ -384,6 +389,239 @@ export class IsoGridOverlay {
             this._highlightGraphics.clear();
         }
         return this;
+    }
+
+    // ==================== 新 hover 视觉：三色边缘线（伪 3D 轮廓）+ 高度列切片 ====================
+
+    /**
+     * 高亮指定方块的完整可见轮廓，以三种颜色区分棱边类型。
+     *
+     * 所有棱边按结构角色分为 4 组（3 种关键类型 + 1 组参考线）：
+     *
+     *   颜色        | 棱边类型                  | 几何边
+     *   ------------+---------------------------+-------------------
+     *   耀金 🟡     | Type 0: 顶面上边缘（参考线） | T→R, L→T
+     *   耀金 🟡     | Type 1: 顶面下边缘线       | R→B_diamond, B_diamond→L
+     *   点金光 ✨   | Type 2: 垂直面交界棱边      | R→RB, L→LB
+     *   铜金 🟠     | Type 3: 垂直面下边缘斜线    | RB→B, B→LB
+     *
+     * 绘制策略：每种类型独立绘制（辉光底衬 + 清晰描边），
+     * 同类型的对称边合并在一个 stroke 调用中，减少绘制开销。
+     *
+     * @param {number} gx - 网格 X 坐标
+     * @param {number} gy - 网格 Y 坐标
+     * @param {number} gz - 网格 Z 坐标（高度层，用于垂直偏移）
+     * @returns {this}
+     *
+     * @example
+     * ```javascript
+     * gridOverlay.highlightBlockEdges(3, 2, 1);
+     * ```
+     */
+    highlightBlockEdges(gx, gy, gz) {
+        this._highlightedCell = { gx, gy };
+
+        const g = this._highlightGraphics;
+        if (!g) return this;
+        g.clear();
+
+        const v = this._getDiamondVertices(gx, gy);
+        const o = this._getBlockOutlineVertices(gx, gy);
+        const yOff = -gz * BLOCK_TOP_OFFSET;
+        const Y = (y) => y + yOff;
+
+        // ════════════════════════════════════════════════════════════
+        // 辉光底衬层（粗线 + 低透明度）
+        // ════════════════════════════════════════════════════════════
+
+        // ── 顶面轮廓（T→R→B_diamond→L→T）: GOLD_MAIN 耀金 ──
+        g.setStrokeStyle({ width: 3, color: GOLD_MAIN, alpha: 0.10 });
+        g.moveTo(o.topX, Y(o.topY)); g.lineTo(o.rightX, Y(o.rightY));
+        g.moveTo(o.leftX, Y(o.leftY)); g.lineTo(o.topX, Y(o.topY));
+        g.stroke();
+
+        // ── Type 1: 顶面下边缘线（顶面与垂直面交界）: GOLD_MAIN 耀金 ──
+        g.setStrokeStyle({ width: 4, color: GOLD_MAIN, alpha: 0.12 });
+        g.moveTo(o.rightX, Y(o.rightY)); g.lineTo(v.bottomX, Y(v.bottomY));
+        g.moveTo(v.bottomX, Y(v.bottomY)); g.lineTo(o.leftX, Y(o.leftY));
+        g.stroke();
+
+        // ── Type 2: 垂直面交界棱边: GOLD_ACCENT 点金光 ──
+        g.setStrokeStyle({ width: 4, color: GOLD_ACCENT, alpha: 0.15 });
+        g.moveTo(o.rightX, Y(o.rightY)); g.lineTo(o.rbX, Y(o.rbY));       // 右垂直面外棱
+        g.moveTo(o.leftX, Y(o.leftY)); g.lineTo(o.lbX, Y(o.lbY));         // 左垂直面外棱
+        g.moveTo(v.bottomX, Y(v.bottomY)); g.lineTo(o.botX, Y(o.botY));   // 两垂直面接触线（中心棱）
+        g.stroke();
+
+        // ── Type 3: 垂直面下边缘斜线: EDGE_COPPER 铜金 ──
+        g.setStrokeStyle({ width: 4, color: EDGE_COPPER, alpha: 0.12 });
+        g.moveTo(o.rbX, Y(o.rbY)); g.lineTo(o.botX, Y(o.botY));
+        g.moveTo(o.botX, Y(o.botY)); g.lineTo(o.lbX, Y(o.lbY));
+        g.stroke();
+
+        // ════════════════════════════════════════════════════════════
+        // 清晰描边层（细线 + 高透明度）
+        // ════════════════════════════════════════════════════════════
+
+        // ── 顶面轮廓（T→R→B_diamond→L→T）: GOLD_MAIN 耀金 ──
+        g.setStrokeStyle({ width: 1.5, color: GOLD_MAIN, alpha: 0.6 });
+        g.moveTo(o.topX, Y(o.topY)); g.lineTo(o.rightX, Y(o.rightY));
+        g.moveTo(o.leftX, Y(o.leftY)); g.lineTo(o.topX, Y(o.topY));
+        g.stroke();
+
+        // ── Type 1: 顶面下边缘线: GOLD_MAIN 耀金 ──
+        g.setStrokeStyle({ width: 2, color: GOLD_MAIN, alpha: 1 });
+        g.moveTo(o.rightX, Y(o.rightY)); g.lineTo(v.bottomX, Y(v.bottomY));
+        g.moveTo(v.bottomX, Y(v.bottomY)); g.lineTo(o.leftX, Y(o.leftY));
+        g.stroke();
+
+        // ── Type 2: 垂直面交界棱边: GOLD_ACCENT 点金光 ──
+        g.setStrokeStyle({ width: 2.5, color: GOLD_ACCENT, alpha: 1 });
+        g.moveTo(o.rightX, Y(o.rightY)); g.lineTo(o.rbX, Y(o.rbY));       // 右垂直面外棱
+        g.moveTo(o.leftX, Y(o.leftY)); g.lineTo(o.lbX, Y(o.lbY));         // 左垂直面外棱
+        g.moveTo(v.bottomX, Y(v.bottomY)); g.lineTo(o.botX, Y(o.botY));   // 两垂直面接触线（中心棱）
+        g.stroke();
+
+        // ── Type 3: 垂直面下边缘斜线: EDGE_COPPER 铜金 ──
+        g.setStrokeStyle({ width: 2, color: EDGE_COPPER, alpha: 1 });
+        g.moveTo(o.rbX, Y(o.rbY)); g.lineTo(o.botX, Y(o.botY));
+        g.moveTo(o.botX, Y(o.botY)); g.lineTo(o.lbX, Y(o.lbY));
+        g.stroke();
+
+        // ════════════════════════════════════════════════════════════
+        // 顶点圆点（按类型分色标记关键端点）
+        // ════════════════════════════════════════════════════════════
+
+        // Type 1 端点（R, B_diamond, L）— 耀金
+        g.setFillStyle({ color: GOLD_MAIN, alpha: 1 });
+        g.circle(o.rightX, Y(o.rightY), 1.5); g.fill();
+        g.circle(v.bottomX, Y(v.bottomY), 1.5); g.fill();
+        g.circle(o.leftX, Y(o.leftY), 1.5); g.fill();
+
+        // Type 2 端点（RB, LB）— 点金光
+        g.setFillStyle({ color: GOLD_ACCENT, alpha: 1 });
+        g.circle(o.rbX, Y(o.rbY), 1.5); g.fill();
+        g.circle(o.lbX, Y(o.lbY), 1.5); g.fill();
+
+        // Type 3 端点（B 底部中点）— 铜金
+        g.setFillStyle({ color: EDGE_COPPER, alpha: 1 });
+        g.circle(o.botX, Y(o.botY), 1.5); g.fill();
+
+        // 顶部顶点 T — 耀金（顶面轮廓统一）
+        g.setFillStyle({ color: GOLD_MAIN, alpha: 0.6 });
+        g.circle(o.topX, Y(o.topY), 1.2); g.fill();
+
+        return this;
+    }
+
+    /**
+     * 高亮指定位置各高度层的方块轮廓（高度列切片）。
+     *
+     * 对 columnInfo 中的每一层 gz 绘制半透明菱形轮廓，
+     * 颜色从底到顶渐变（深褐→暗金→耀金），
+     * 透明度从底到顶递增（底部朦胧，顶部清晰），
+     * 帮助玩家直观理解体素世界的垂直结构。
+     *
+     * @param {number} gx - 网格 X 坐标
+     * @param {number} gy - 网格 Y 坐标
+     * @param {Array<{gz: number, blockType: string}>} columnInfo -
+     *     该列的方块信息数组（由 BlockGridManager.getColumnInfo() 返回），
+     *     按 gz 升序排列
+     * @returns {this}
+     *
+     * @example
+     * ```javascript
+     * const col = grid.getColumnInfo(3, 2);
+     * gridOverlay.highlightColumn(3, 2, col);
+     * ```
+     */
+    highlightColumn(gx, gy, columnInfo) {
+        if (!columnInfo || columnInfo.length === 0) return this;
+
+        const g = this._highlightGraphics;
+        if (!g) return this;
+
+        const v = this._getDiamondVertices(gx, gy);
+        const maxGz = columnInfo[columnInfo.length - 1].gz;
+        const minGz = columnInfo[0].gz;
+        const gzRange = Math.max(maxGz - minGz, 1); // 防除零
+
+        // 从底部往上绘制，确保上层覆盖下层（PIXI 无深度但绘制顺序决定覆盖）
+        for (const entry of columnInfo) {
+            const { gz } = entry;
+            const yOff = -gz * BLOCK_TOP_OFFSET;
+
+            // 计算渐变：t ∈ [0, 1]，底部→顶部
+            const t = (gz - minGz) / gzRange;
+
+            // 透明度：底部 0.1 → 顶部 0.35
+            const alpha = 0.1 + t * 0.25;
+
+            // 颜色插值：GOLD_DARK(0x8b6f3c) → GOLD_MAIN(0xd4a847) → GOLD_ACCENT(0xffd966)
+            let color;
+            if (t < 0.5) {
+                // 底部段：GOLD_DARK → GOLD_MAIN
+                const t2 = t * 2;
+                color = this._lerpColor(GOLD_DARK, GOLD_MAIN, t2);
+            } else {
+                // 顶部段：GOLD_MAIN → GOLD_ACCENT
+                const t2 = (t - 0.5) * 2;
+                color = this._lerpColor(GOLD_MAIN, GOLD_ACCENT, t2);
+            }
+
+            // 绘制半透明菱形轮廓
+            g.setStrokeStyle({ width: 1.2, color, alpha });
+            g.moveTo(v.topX, v.topY + yOff);
+            g.lineTo(v.rightX, v.rightY + yOff);
+            g.lineTo(v.bottomX, v.bottomY + yOff);
+            g.lineTo(v.leftX, v.leftY + yOff);
+            g.closePath();
+            g.stroke();
+
+            // 半透明填充（极淡，仅增加空间感）
+            g.setFillStyle({ color, alpha: alpha * 0.3 });
+            g.moveTo(v.topX, v.topY + yOff);
+            g.lineTo(v.rightX, v.rightY + yOff);
+            g.lineTo(v.bottomX, v.bottomY + yOff);
+            g.lineTo(v.leftX, v.leftY + yOff);
+            g.closePath();
+            g.fill();
+        }
+
+        return this;
+    }
+
+    // ==================== 颜色工具 ====================
+
+    /**
+     * 线性插值两个十六进制颜色。
+     *
+     * @private
+     * @param {number} colorA - 起始颜色（十六进制，如 0x8b6f3c）
+     * @param {number} colorB - 终止颜色（十六进制，如 0xffd966）
+     * @param {number} t - 插值因子 [0, 1]
+     * @returns {number} 插值后的十六进制颜色
+     *
+     * @example
+     * ```javascript
+     * const mid = overlay._lerpColor(0x8b6f3c, 0xffd966, 0.5);
+     * // → 0xc5a351
+     * ```
+     */
+    _lerpColor(colorA, colorB, t) {
+        const rA = (colorA >> 16) & 0xff;
+        const gA = (colorA >> 8) & 0xff;
+        const bA = colorA & 0xff;
+
+        const rB = (colorB >> 16) & 0xff;
+        const gB = (colorB >> 8) & 0xff;
+        const bB = colorB & 0xff;
+
+        const r = Math.round(rA + (rB - rA) * t);
+        const g = Math.round(gA + (gB - gA) * t);
+        const b = Math.round(bA + (bB - bA) * t);
+
+        return (r << 16) | (g << 8) | b;
     }
 
     /**
@@ -433,6 +671,80 @@ export class IsoGridOverlay {
             rightX: cx + HW,  rightY: cy,
             bottomX: cx,      bottomY: cy + HH,
             leftX: cx - HW,   leftY: cy
+        };
+    }
+
+    /**
+     * 获取方块完整六边形轮廓的六个顶点坐标。
+     *
+     * 在等轴投影中，一个方块的可见部分由三个面组成：
+     * - 顶面（菱形）：顶点 T(top), R(right), B_diamond(bottom), L(left)
+     * - 右侧面：从 R 沿右棱边向下至 RB，再沿底边至 B(center-bottom)
+     * - 左侧面：从 L 沿左棱边向下至 LB，再沿底边至 B(center-bottom)
+     *
+     * 六边形顶点顺序（顺时针）：
+     *   T (top) → R (right) → RB (right-bottom) → B (center-bottom) → LB (left-bottom) → L (left)
+     *
+     * 底部 Y 坐标的剪切校正：
+     *
+     * shearToParallelogram() 在源纹理范围外使用透明（continue 跳过），
+     * 所以侧裟纹理的可见区域并非填满整个 12×21 矩形：
+     *
+     * ┌─ 左面（anchor=1,0, pos=0,0）──────────────────────────────┐
+     * │ 左边缘 ox=0（x=-12）：iy=oy，可见 oy∈[0, SRC_SIZE-1]      │
+     * │ → 底部边界在 oy = SRC_SIZE = 16                           │
+     * │ 右边缘 ox=11（x=0）：iy=oy-SHEAR_OFFSET，可见至 oy=20     │
+     * │ → 底部边界在 oy = SIDE_HEIGHT = 21（sprite 底边）         │
+     * └──────────────────────────────────────────────────────────┘
+     *
+     * ┌─ 右面（anchor=0,0, pos=0,0）──────────────────────────────┐
+     * │ 左边缘 ox=0（x=0）：iy=oy-SHEAR_OFFSET，可见至 oy=20     │
+     * │ → 底部边界在 oy = SIDE_HEIGHT = 21                       │
+     * │ 右边缘 ox=11（x=12）：iy=oy，可见 oy∈[0, SRC_SIZE-1]     │
+     * │ → 底部边界在 oy = SRC_SIZE = 16                          │
+     * └──────────────────────────────────────────────────────────┘
+     *
+     * 因此底部形成 V 形：
+     *   LB(-12, 16) ──→ bot(0, 21) ←── RB(12, 16)
+     *   左面底边从左到右斜向下  ✓
+     *   右面底边从右到左斜向下  ✓
+     *
+     * @param {number} gx - 网格 X 坐标
+     * @param {number} gy - 网格 Y 坐标
+     * @returns {{ topX: number, topY: number, rightX: number, rightY: number,
+     *            rbX: number, rbY: number, botX: number, botY: number,
+     *            lbX: number, lbY: number, leftX: number, leftY: number }}
+     *
+     * @example
+     * ```javascript
+     * const o = overlay._getBlockOutlineVertices(2, 3);
+     * // o.topX = (2-3)*12     = -12
+     * // o.topY = (2+3)*6 - 6  =  24
+     * // o.rbX  = (2-3)*12+12  =  0
+     * // o.rbY  = (2+3)*6 + 16 =  46  (SRC_SIZE)
+     * // o.botX = (2-3)*12     =  0
+     * // o.botY = (2+3)*6 + 21 =  51  (SIDE_HEIGHT)
+     * // o.lbX  = (2-3)*12-12  = -12
+     * // o.lbY  = (2+3)*6 + 16 =  46  (SRC_SIZE)
+     * ```
+     */
+    _getBlockOutlineVertices(gx, gy) {
+        const cx = (gx - gy) * TILE_HALF_W;
+        const cy = (gx + gy) * TILE_HALF_H;
+        const HW = ROTATED_SIZE / 2; // 12
+        const HH = TOP_HEIGHT / 2;   //  6
+
+        return {
+            // 顶面菱形顶点
+            topX: cx,         topY: cy - HH,            // T
+            rightX: cx + HW,  rightY: cy,               // R
+            leftX: cx - HW,   leftY: cy,                // L
+            // 右侧面底部顶点（源纹理边界 SRC_SIZE=16）
+            rbX: cx + HW,     rbY: cy + SRC_SIZE,       // RB
+            // 底部中点（sprite 底边 SIDE_HEIGHT=21）
+            botX: cx,         botY: cy + SIDE_HEIGHT,   // B
+            // 左侧面底部顶点（源纹理边界 SRC_SIZE=16）
+            lbX: cx - HW,     lbY: cy + SRC_SIZE        // LB
         };
     }
 

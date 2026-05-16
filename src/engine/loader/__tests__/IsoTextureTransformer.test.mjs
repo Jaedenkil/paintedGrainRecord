@@ -143,5 +143,77 @@ describe('IsoTextureTransformer - expandTopFaceEdges', () => {
             assert.strictEqual(second.data[23 * 4 + i], col23Before[i]);
         }
     });
+    
+});
 
+// ==================== 纹理缓存测试 ====================
+
+describe('IsoTextureTransformer - 纹理缓存', () => {
+    let clearTextureCache, getTextureCacheStats;
+
+    before(async () => {
+        const mod = await import('../IsoTextureTransformer.mjs');
+        clearTextureCache = mod.clearTextureCache;
+        getTextureCacheStats = mod.getTextureCacheStats;
+    });
+
+    it('应导出 clearTextureCache 和 getTextureCacheStats', () => {
+        assert.strictEqual(typeof clearTextureCache, 'function');
+        assert.strictEqual(typeof getTextureCacheStats, 'function');
+    });
+
+    it('getTextureCacheStats() 初始应全零', () => {
+        clearTextureCache();
+        const stats = getTextureCacheStats();
+
+        assert.strictEqual(typeof stats, 'object');
+        assert.strictEqual(stats.hits, 0);
+        assert.strictEqual(stats.misses, 0);
+        assert.strictEqual(stats.hitRate, 'N/A');
+        assert.strictEqual(stats.urlCacheSize, 0);
+        assert.strictEqual(stats.transformedCacheSize, 0);
+    });
+
+    it('getTextureCacheStats() 的返回形状应包含所有字段', () => {
+        clearTextureCache();
+        const stats = getTextureCacheStats();
+
+        // 验证字段存在且类型正确
+        assert.ok('hits' in stats);
+        assert.ok('misses' in stats);
+        assert.ok('hitRate' in stats);
+        assert.ok('urlCacheSize' in stats);
+        assert.ok('transformedCacheSize' in stats);
+
+        assert.strictEqual(typeof stats.hits, 'number');
+        assert.strictEqual(typeof stats.misses, 'number');
+        assert.strictEqual(typeof stats.hitRate, 'string');
+        assert.strictEqual(typeof stats.urlCacheSize, 'number');
+        assert.strictEqual(typeof stats.transformedCacheSize, 'number');
+    });
+
+    it('clearTextureCache() 应可重复调用而不报错', () => {
+        // 多次调用不应抛出
+        clearTextureCache();
+        clearTextureCache();
+        clearTextureCache();
+        // 调用后 stats 应为初始状态
+        const stats = getTextureCacheStats();
+        assert.strictEqual(stats.hits, 0);
+        assert.strictEqual(stats.misses, 0);
+    });
+
+    it('clearTextureCache() 后 stats 中的缓存大小应为 0', () => {
+        clearTextureCache();
+        // 先验证初始
+        let stats = getTextureCacheStats();
+        assert.strictEqual(stats.urlCacheSize, 0);
+        assert.strictEqual(stats.transformedCacheSize, 0);
+
+        // 再次调用后仍为 0
+        clearTextureCache();
+        stats = getTextureCacheStats();
+        assert.strictEqual(stats.urlCacheSize, 0);
+        assert.strictEqual(stats.transformedCacheSize, 0);
+    });
 });
