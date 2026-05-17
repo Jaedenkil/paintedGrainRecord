@@ -18,3 +18,10 @@ export { Bone, quantizeAngle } from './core/Bone.mjs';
 export { SkeletonPose } from './core/SkeletonPose.mjs';
 export { AnimationClip } from './core/AnimationClip.mjs';
 export { Skeleton, SKELETON_PRESETS } from './core/Skeleton.mjs';
+
+// 输入系统
+export { InputModule, InputMapper, KeyboardAdapter, MouseAdapter, InputAdapter } from './input/index.mjs';
+
+// 场景管理
+export { Scene } from './scene/index.mjs';
+export { SceneManager } from './scene/index.mjs';

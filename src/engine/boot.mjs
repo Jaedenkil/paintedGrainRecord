@@ -111,7 +111,7 @@ try {
 
     const renderer = new BlockRenderer(renderSystem.layerStack);
 
-    // 构建体素世界演示场景
+    // 构建体素世界演示场景（构建逻辑保持不动）
     const { gridWidth, gridHeight } = await buildVoxelDemoScene(renderer, {
         seed: 42,
         terrainHeight: 1,
@@ -121,25 +121,42 @@ try {
 
     Logger.info(`✅ VoxelDemoScene 场景构建完成: ${renderer.blockCount} 个方块, ${gridWidth}×${gridHeight}`);
 
-    // ──── 初始显示所有方块，便于观察网格与物块贴合效果 ────
-    renderer.setBlocksVisible(true);
+    // ── 屏幕→等轴坐标逆变换（鼠标拾取核心） ──
+    const { ScreenToWorld } = await import('./input/ScreenToWorld.mjs');
+    const screenToWorld = new ScreenToWorld(renderSystem.camera);
+    renderer.setScreenToWorld(screenToWorld);
+    Logger.info('✅ ScreenToWorld 逆变换已接入，点击方块可拾取/移除');
 
-    // ──────────────────────────────────────────────
-    // 相机定位 — 将视口中心对准体素地图的几何中心
-    // 等轴坐标变换：screenX = (gx - gy) * TILE_HALF_W, screenY = (gx + gy) * TILE_HALF_H
-    // TILE_HALF_W = 12 (ROTATED_SIZE/2), TILE_HALF_H = 6 (TOP_HEIGHT/2)
-    // ──────────────────────────────────────────────
-    const TILE_HALF_W = 12;
-    const TILE_HALF_H = 6;
-    const centerGx = (gridWidth - 1) / 2;
-    const centerGy = (gridHeight - 1) / 2;
-    const centerScreenX = (centerGx - centerGy) * TILE_HALF_W;
-    const centerScreenY = (centerGx + centerGy) * TILE_HALF_H;
-    renderSystem.camera.moveToImmediate(centerScreenX, centerScreenY);
-    Logger.info(`相机已定位至地图中心: screen(${centerScreenX}, ${centerScreenY}), grid(${gridWidth}×${gridHeight})`);
+    // ── 视锥体裁剪（性能优化：仅渲染视口内方块） ──
+    const { FrustumCuller } = await import('./render/block/FrustumCuller.mjs');
 
-    // 暴露到全局（用于 DevTools 交互测试）
-    window.__renderer = renderer;
+    /** @private @type {ReturnType<setTimeout>|null} */
+    let _cullTimer = null;
+    const CULL_DEBOUNCE_MS = 100; // 相机停止移动 100ms 后触发裁剪
+
+    /**
+     * 执行视锥体裁剪的内部函数。
+     * 通过防抖避免相机平滑移动期间频繁全量遍历。
+     */
+    const _doCull = () => {
+        renderer.cull(renderSystem.camera);
+    };
+
+    // 首次场景显示后立即裁剪（Scene.enter 会 setBlocksVisible(true)，之后需要裁剪）
+    // 在 scene push 之后执行（见下方）
+
+    // 监听相机移动事件（带防抖）
+    engine.eventBus.on('render:camera-moved', () => {
+        if (_cullTimer !== null) {
+            clearTimeout(_cullTimer);
+        }
+        _cullTimer = setTimeout(() => {
+            _cullTimer = null;
+            _doCull();
+        }, CULL_DEBOUNCE_MS);
+    });
+
+    Logger.info(`✅ 视锥体裁剪已就绪 (防抖 ${CULL_DEBOUNCE_MS}ms)`);
 
     // ──────────────────────────────────────────────
     // 等轴菱形参考网格 — 调试顶面对齐用
@@ -165,15 +182,42 @@ try {
 
     cameraContainer.addChild(gridOverlay.container);
 
-    // 绑定 hover 高亮：鼠标移入物块 → 显示对应网格线
-    renderer.bindGridHover(gridOverlay);
+    // 绑定 hover + click：ScreenToWorld 逆变换拾取（一次性设置，内部含 hover 高亮）
+    renderer.bindGridClick(gridOverlay);
 
-    // 启用方块点击调试日志：点击任意方块，控制台输出完整调试快照
+    // 启用方块点击调试日志：点击任意方块，控制台输出完整调试快照（一次性设置）
     renderer.enableBlockDebug();
 
-    // 暴露到全局（用于 DevTools 交互调试）
+    // ──────────────────────────────────────────────
+    // 注册 VoxelDemoScene 到场景管理器
+    // enter() 会自动处理：相机定位 + 显示方块/网格
+    // ──────────────────────────────────────────────
+    const { VoxelDemoScene } = await import('./voxel/VoxelDemoSceneClass.mjs');
+
+    const demoScene = new VoxelDemoScene({
+        renderSystem,
+        blockRenderer: renderer,
+        gridOverlay,
+        gridWidth,
+        gridHeight
+    });
+
+    engine.scenes.register('voxel-demo', () => demoScene);
+    engine.scenes.push('voxel-demo');
+    // ↑ push() 触发 Scene.enter(): 相机定位 + setBlocksVisible(true) + gridOverlay.visible = true
+
+    Logger.info(`相机已定位至地图中心: grid(${gridWidth}×${gridHeight})`);
+
+    // ── 首次裁剪：场景进入后立即应用 ──
+    // 注意：此时 Scene.enter 已调用 setBlocksVisible(true)，所有方块可见
+    // 需要立即裁剪以隐藏视口外方块
+    _doCull();
+    Logger.info('✅ 首次视锥体裁剪已执行');
+
+    // ── 暴露到全局（用于 DevTools 交互调试） ──
+    window.__renderer = renderer;
+    window.__screenToWorld = screenToWorld;
     window.__gridOverlay = gridOverlay;
-    window.__renderer = renderer; // 已在上方定义，此处保留用于统一暴露
 
     // 便捷调试方法：切换菱形网格显隐
     window.__toggleGrid = () => {
@@ -194,8 +238,126 @@ try {
         return _blocksVisible;
     };
 
+    // 便捷调试方法：手动触发裁剪
+    window.__cull = () => {
+        _doCull();
+        Logger.info('手动裁剪完成');
+    };
+
+    // 便捷调试方法：查询当前裁剪状态
+    window.__cullBounds = () => {
+        return renderer._culledBounds;
+    };
+
+    // 便捷调试方法：查询可见/总方块数
+    window.__blockStats = () => {
+        return {
+            total: renderer.blockCount,
+            visible: renderer.visibleBlockCount,
+            hidden: renderer.blockCount - renderer.visibleBlockCount
+        };
+    };
+
     Logger.info('✅ IsoGridOverlay 菱形参考网格已加载（控制台输入 __toggleGrid() 切换可见性）');
     Logger.info('✅ 物块显隐控制器已就绪（控制台输入 __toggleBlocks() 切换方块显隐）');
+    Logger.info('✅ 裁剪调试: __cull() 手动裁剪, __cullBounds() 查看范围, __blockStats() 统计');
+
+    // ── ECS 全链路诊断台 ──
+    // 在 document 上监听 keydown 以便诊断台检测按键状态
+    const _diagKeys = new Set();
+    document.addEventListener('keydown', (e) => { _diagKeys.add(e.code); });
+    document.addEventListener('keyup', (e) => { _diagKeys.delete(e.code); });
+    document.addEventListener('blur', () => { _diagKeys.clear(); });
+
+    window.__diagnoseECS = () => {
+        const lines = [];
+        const push = (label, val) => lines.push(`  ${label.padEnd(22)} ${val}`);
+
+        lines.push('═ ⚡ ECS 全链路诊断报告 ═');
+        lines.push('');
+
+        const eng = window.__engine;
+        if (!eng) { lines.push('  ❌ window.__engine 不可用'); console.log(lines.join('\n')); return; }
+
+        push('引擎状态', eng.state);
+        push('是否运行中', String(eng.isRunning));
+        push('GameLoop FPS', `${eng.loop.fps}`);
+        push('GameLoop 运行中', String(eng.loop.isRunning));
+
+        // 场景管理器
+        const sm = eng.scenes;
+        push('场景栈深度', String(sm.depth));
+        const currentScene = sm.current;
+        if (currentScene) {
+            push('当前场景', `${currentScene.name} (active=${currentScene.isActive})`);
+            // 尝试访问私有字段（开发诊断用）
+            const vds = /** @type {any} */ (currentScene);
+            push('ECS World 存在', String(!!vds._world));
+            push('InputModule 存在', String(!!vds._inputModule));
+            push('__frameCount', String(vds.__frameCount ?? 'N/A'));
+
+            // 按键实时检测（通过 document 上的独立监听）
+            const heldKeys = Array.from(_diagKeys).filter(k => k.startsWith('Key') || k.startsWith('Arrow'));
+            push('物理按键(实时)', heldKeys.length > 0 ? heldKeys.join(', ') : '(无)');
+
+            if (vds._inputModule) {
+                const im = vds._inputModule;
+                push('Input 已启动', String(im._started));
+                push('KeyW(isDown)', String(im.isDown('move_up')));
+                push('KeyA(isDown)', String(im.isDown('move_left')));
+                push('KeyS(isDown)', String(im.isDown('move_down')));
+                push('KeyD(isDown)', String(im.isDown('move_right')));
+            }
+
+            if (vds._world) {
+                const w = vds._world;
+                push('实体数量', String(w.entityCount));
+                const entities = w.query('Position');
+                push('Position 实体', `${entities.length} 个 (ID: ${entities.join(', ')})`);
+                for (const id of entities) {
+                    const pos = w.getComponent(id, 'Position');
+                    if (pos) push(`  Entity#${id} pos`, `(${pos.gx}, ${pos.gy}, ${pos.wz}) type=${pos.type}`);
+                }
+                push('ECS 系统数', String(w._systems?.length ?? '?'));
+
+                // EntityRenderSystem 诊断
+                const renderSys = vds._entityRenderSystem;
+                if (renderSys) {
+                    push('EntityRender 存活', String(!renderSys._destroyed));
+                    push('Sprite 映射数', String(renderSys._entitySprites?.size ?? '?'));
+                    push('帧计数器', String(renderSys._frameCount));
+
+                    // Sprite 可见性检查
+                    const sprEntries = renderSys._entitySprites;
+                    if (sprEntries && sprEntries.size > 0) {
+                        const sg = renderSys._sceneGraph;
+                        for (const [eid, info] of sprEntries) {
+                            const node = sg ? sg.get(info.nodeId) : null;
+                            if (node) {
+                                const c = node.container;
+                                const texUrl = (c.texture && c.texture.textureCacheIds && c.texture.textureCacheIds.length > 0)
+                                    ? c.texture.textureCacheIds[0] : '?';
+                                const texValid = c.texture ? c.texture.valid : false;
+                                const tw = c.texture ? c.texture.width : -1;
+                                const th = c.texture ? c.texture.height : -1;
+                                push(`  Sprite#${info.nodeId}`,
+                                    `visible=${c.visible} x=${c.x.toFixed(0)} y=${c.y.toFixed(0)} ` +
+                                    `alpha=${c.alpha} tex=${texUrl} (${tw}x${th}, valid=${texValid})`);
+                            } else {
+                                push(`  Sprite#${info.nodeId}`, '❌ Node not found in SceneGraph');
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            push('当前场景', '❌ 无活跃场景');
+        }
+
+        console.log(lines.join('\n'));
+        return lines.join('\n');
+    };
+    Logger.info('✅ ECS 诊断台已就绪: 控制台输入 __diagnoseECS() 查看');
 
 } catch (err) {
     Logger.error('渲染系统注册/初始化失败:', err);

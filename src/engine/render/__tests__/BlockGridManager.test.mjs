@@ -405,60 +405,48 @@ describe('BlockGridManager - getColumnInfo', () => {
 });
 
 // ════════════════════════════════════════════════════════════
-// 测试：IsoGridOverlay._lerpColor（纯函数）
+// 测试：IsoGridGeometry.lerpColor（纯函数）
 // ════════════════════════════════════════════════════════════
 //
-// 注意：_lerpColor 是纯函数，不依赖 this / PIXI.Graphics。
-// 通过 prototype 访问直接测试，避免构造 IsoGridOverlay 实例，
-// 从而消除对 PIXI.Graphics mock 的依赖（其他测试文件可能会
-// 在全局套件中覆盖 PIXI 环境）。
+// 注意：使用动态 import 确保 PIXI mock 先设置完成。
+// lerpColor 是纯函数，不依赖 this / PIXI.Graphics。
 
-describe('IsoGridOverlay - _lerpColor', () => {
-    /** @type {typeof import('../IsoGridOverlay.mjs').IsoGridOverlay} */
-    let IsoGridOverlay;
-
-    /** @private @type {Function} _lerpColor 的引用，从 prototype 提取 */
+describe('IsoGridGeometry - lerpColor', () => {
+    /** @private @type {import('../IsoGridGeometry.mjs').lerpColor} */
     let _lerpColor;
 
     before(async () => {
-        // 只需加载模块获取类定义，无需 PIXI.Graphics
-        const mod = await import('../IsoGridOverlay.mjs');
-        IsoGridOverlay = mod.IsoGridOverlay;
-        // 从 prototype 提取 _lerpColor 方法（纯函数，不依赖 this）
-        _lerpColor = IsoGridOverlay.prototype._lerpColor;
+        const mod = await import('../IsoGridGeometry.mjs');
+        _lerpColor = mod.lerpColor;
     });
 
     it('t=0 应返回 colorA', () => {
-        const result = _lerpColor.call(null, 0x8b6f3c, 0xffd966, 0);
+        const result = _lerpColor(0x8b6f3c, 0xffd966, 0);
         assert.strictEqual(result, 0x8b6f3c);
     });
 
     it('t=1 应返回 colorB', () => {
-        const result = _lerpColor.call(null, 0x8b6f3c, 0xffd966, 1);
+        const result = _lerpColor(0x8b6f3c, 0xffd966, 1);
         assert.strictEqual(result, 0xffd966);
     });
 
     it('t=0.5 应返回中间值', () => {
-        // 0x8b6f3c = rgb(139, 111, 60)
-        // 0xffd966 = rgb(255, 217, 102)
-        // 中点   = rgb(197, 164, 81) = 0xc5a451
-        const result = _lerpColor.call(null, 0x8b6f3c, 0xffd966, 0.5);
+        const result = _lerpColor(0x8b6f3c, 0xffd966, 0.5);
         assert.strictEqual(result, 0xc5a451);
     });
 
     it('t=0.25 应在 1/4 处正确插值', () => {
-        // 0x000000 → 0xffffff, t=0.25 → rgb(64, 64, 64) = 0x404040
-        const result = _lerpColor.call(null, 0x000000, 0xffffff, 0.25);
+        const result = _lerpColor(0x000000, 0xffffff, 0.25);
         assert.strictEqual(result, 0x404040);
     });
 
     it('相同的颜色应返回自身', () => {
-        const result = _lerpColor.call(null, 0xd4a847, 0xd4a847, 0.5);
+        const result = _lerpColor(0xd4a847, 0xd4a847, 0.5);
         assert.strictEqual(result, 0xd4a847);
     });
 
     it('边界值 t=0 和 t=1 均精确', () => {
-        assert.strictEqual(_lerpColor.call(null, 0x123456, 0x789abc, 0), 0x123456);
-        assert.strictEqual(_lerpColor.call(null, 0x123456, 0x789abc, 1), 0x789abc);
+        assert.strictEqual(_lerpColor(0x123456, 0x789abc, 0), 0x123456);
+        assert.strictEqual(_lerpColor(0x123456, 0x789abc, 1), 0x789abc);
     });
 });

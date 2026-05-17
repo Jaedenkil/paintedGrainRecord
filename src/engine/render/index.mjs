@@ -31,7 +31,9 @@ export { IsoGridOverlay } from './IsoGridOverlay.mjs';
 
 // 骨骼动画渲染模块（T8 / T9 / T13B）
 export { CharacterSprite } from './CharacterSprite.mjs';
+export { CharacterZOrder } from './CharacterZOrder.mjs';
 export { SkeletalAnimationController } from './SkeletalAnimationController.mjs';
+export { BlendLayerStack } from './BlendLayerStack.mjs';
 export { Slot } from './Slot.mjs';
 export { BoneTextureAtlas } from './BoneTextureAtlas.mjs';
 

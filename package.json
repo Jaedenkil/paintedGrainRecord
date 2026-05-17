@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "electron .",
-    "test": "node --test src/engine/__tests__/EventBus.test.mjs src/engine/__tests__/Time.test.mjs src/engine/__tests__/GameLoop.test.mjs src/engine/__tests__/Engine.test.mjs src/engine/core/__tests__/Bone.test.mjs src/engine/core/__tests__/Skeleton.test.mjs src/engine/core/__tests__/SkeletonPose.test.mjs src/engine/core/__tests__/AnimationClip.test.mjs src/engine/render/__tests__/SkeletalAnimationController.test.mjs src/engine/render/__tests__/SceneGraph.test.mjs"
+    "test": "node --test src/engine/__tests__/EventBus.test.mjs src/engine/__tests__/Time.test.mjs src/engine/__tests__/GameLoop.test.mjs src/engine/__tests__/Engine.test.mjs src/engine/core/__tests__/Bone.test.mjs src/engine/core/__tests__/Skeleton.test.mjs src/engine/core/__tests__/SkeletonPose.test.mjs src/engine/core/__tests__/AnimationClip.test.mjs src/engine/render/__tests__/SkeletalAnimationController.test.mjs src/engine/render/__tests__/SceneGraph.test.mjs src/engine/input/__tests__/InputSystem.test.mjs src/engine/input/__tests__/ScreenToWorld.test.mjs src/engine/scene/__tests__/SceneSystem.test.mjs src/engine/ecs/__tests__/ECS.test.mjs"
   },
   "keywords": [],
   "author": "",

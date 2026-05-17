@@ -51,6 +51,9 @@ export class BlockRenderer extends BlockGridManager {
     /** @private @type {BlockDebugManager|null} */
     _debug = null;
 
+    /** @private @type {import('../input/ScreenToWorld.mjs').ScreenToWorld|null} */
+    _screenToWorld = null;
+
     /**
      * @param {import('./LayerStack.mjs').LayerStack} layerStack - 图层管理栈实例
      * @param {import('../core/EventBus.mjs').EventBus} [eventBus] - 事件总线（默认使用单例）
@@ -61,7 +64,26 @@ export class BlockRenderer extends BlockGridManager {
         // 所有网格管理能力由 BlockGridManager 构造函数完成
     }
 
-    // ==================== 交互能力代理 ====================
+    // ==================== 交互能力 ====================
+
+    /**
+     * 设置 ScreenToWorld 逆变换工具，用于交互拾取管道。
+     *
+     * 必须在 bindGridHover / bindGridClick 之前调用。
+     *
+     * @param {import('../input/ScreenToWorld.mjs').ScreenToWorld} screenToWorld
+     * @returns {this} 链式调用
+     *
+     * @example
+     * ```javascript
+     * const stw = new ScreenToWorld(camera2D);
+     * renderer.setScreenToWorld(stw).bindGridClick(gridOverlay);
+     * ```
+     */
+    setScreenToWorld(screenToWorld) {
+        this._screenToWorld = screenToWorld;
+        return this;
+    }
 
     /**
      * 绑定菱形网格 hover 高亮。
@@ -208,7 +230,7 @@ export class BlockRenderer extends BlockGridManager {
      */
     _ensureInteraction() {
         if (!this._interaction) {
-            this._interaction = new BlockInteractionManager(this);
+            this._interaction = new BlockInteractionManager(this, this._screenToWorld);
             // 设置钩子使 _createAndPlaceBlock 能回调交互管理器
             this.interactionManager = this._interaction;
         }

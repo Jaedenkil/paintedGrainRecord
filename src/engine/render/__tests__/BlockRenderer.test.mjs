@@ -21,6 +21,7 @@
 import { describe, it, before, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventBus } from '../../core/EventBus.mjs';
+import { ScreenToWorld } from '../../input/ScreenToWorld.mjs';
 
 // ============================================================
 // PIXI 全局 Mock（与 BlockSprite.test.mjs 保持一致）
@@ -379,6 +380,12 @@ class GridOverlayMock {
 
     /** @returns {this} */
     clearHighlight() { return this; }
+
+    /** @returns {this} */
+    highlightBlockEdges() { return this; }
+
+    /** @returns {this} */
+    highlightColumn() { return this; }
 }
 
 // ============================================================
@@ -801,59 +808,77 @@ describe('BlockRenderer - T12: destroy 销毁', () => {
 });
 
 // ============================================================
-// 测试：_normalizeGrid 网格标准化
+// 测试：BlockGridOperator._normalizeGrid 网格标准化（该方法已重构至 BlockGridOperator）
 // ============================================================
 
+/**
+ * 创建最小化 BlockGridManager Mock 供 BlockGridOperator 使用。
+ * @returns {*} Mock 对象
+ */
+function createGridManagerMock() {
+    return {
+        _blockMap: new Map(),
+        _blockTypes: [],
+        _layerStack: new LayerStackMock(),
+        blockCount: 0,
+        hasBlock: () => false,
+        getBlock: () => undefined,
+        removeBlock: () => {},
+        interactionManager: null,
+        debugManager: null
+    };
+}
+
 describe('BlockRenderer - T12: _normalizeGrid 网格标准化', () => {
-    /** @type {typeof import('../BlockRenderer.mjs').BlockRenderer} */
-    let BlockRenderer;
+    /** @type {typeof import('../block/BlockGridOperator.mjs').BlockGridOperator} */
+    let BlockGridOperator;
 
     before(async () => {
-        const mod = await import('../BlockRenderer.mjs');
-        BlockRenderer = mod.BlockRenderer;
+        const mod = await import('../block/BlockGridOperator.mjs');
+        BlockGridOperator = mod.BlockGridOperator;
     });
 
     it('2D 网格应识别为非 3D 并返回 heightLayers = [0]', () => {
-        const renderer = new BlockRenderer(new LayerStackMock());
+        const operator = new BlockGridOperator(createGridManagerMock());
         const grid2d = [
             ['grass', 'grass'],
             ['grass', 'stone']
         ];
 
-        const result = renderer._normalizeGrid(grid2d);
+        const result = operator._normalizeGrid(grid2d);
 
         assert.strictEqual(result.grid, grid2d);
         assert.deepStrictEqual(result.heightLayers, [0]);
     });
 
     it('3D 网格应识别并返回正确的 heightLayers', () => {
-        const renderer = new BlockRenderer(new LayerStackMock());
+        const operator = new BlockGridOperator(createGridManagerMock());
         const grid3d = [
             [['grass', 'grass'], ['grass', 'dirt']],
             [[null, 'stone'], [null, null]]
         ];
 
-        const result = renderer._normalizeGrid(grid3d);
+        const result = operator._normalizeGrid(grid3d);
 
         assert.deepStrictEqual(result.heightLayers, [0, 1]);
     });
 
     it('3D 网格中有空层应跳过', () => {
-        const renderer = new BlockRenderer(new LayerStackMock());
+        const operator = new BlockGridOperator(createGridManagerMock());
         const grid3d = [
             [['grass', 'grass'], ['grass', 'dirt']],
             [],
             [[null, 'stone'], [null, null]]
         ];
 
-        const result = renderer._normalizeGrid(grid3d);
+        const result = operator._normalizeGrid(grid3d);
 
         assert.deepStrictEqual(result.heightLayers, [0, 2]);
     });
 
     it('空数组 → heightLayers = [0]', () => {
-        const renderer = new BlockRenderer(new LayerStackMock());
-        const result = renderer._normalizeGrid([]);
+        const operator = new BlockGridOperator(createGridManagerMock());
+        const result = operator._normalizeGrid([]);
 
         assert.deepStrictEqual(result.heightLayers, [0]);
     });
@@ -1076,8 +1101,18 @@ describe('BlockRenderer - T12: SceneGraph 集成', () => {
 });
 
 // ============================================================
-// 测试：网格点击交互（bindGridClick / unbindGridClick）
+// 测试：网格点击交互（ScreenToWorld 逆变换拾取管道）
 // ============================================================
+
+/**
+ * 创建测试用 ScreenToWorld 实例。
+ * 使用默认 Camera 参数：x=0, y=0, zoom=1, viewWidth=800, viewHeight=600
+ * @returns {ScreenToWorld}
+ */
+function createTestScreenToWorld() {
+    const mockCamera = { x: 0, y: 0, zoom: 1, viewWidth: 800, viewHeight: 600 };
+    return new ScreenToWorld(mockCamera);
+}
 
 describe('BlockRenderer - 网格点击交互', () => {
     /** @type {typeof import('../BlockRenderer.mjs').BlockRenderer} */
@@ -1086,6 +1121,8 @@ describe('BlockRenderer - 网格点击交互', () => {
     let layerStack;
     /** @type {GridOverlayMock} */
     let gridOverlay;
+    /** @type {ScreenToWorld} */
+    let stw;
 
     before(async () => {
         const mod = await import('../BlockRenderer.mjs');
@@ -1096,6 +1133,7 @@ describe('BlockRenderer - 网格点击交互', () => {
         EventBus.getInstance().clear();
         layerStack = new LayerStackMock();
         gridOverlay = new GridOverlayMock();
+        stw = createTestScreenToWorld();
     });
 
     afterEach(() => {
@@ -1104,35 +1142,36 @@ describe('BlockRenderer - 网格点击交互', () => {
 
     it('bindGridClick 设置 _gridClickEnabled = true', () => {
         const renderer = new BlockRenderer(layerStack);
+        renderer.setScreenToWorld(stw);
         renderer.bindGridClick(gridOverlay);
 
         assert.strictEqual(renderer._gridClickEnabled, true);
         renderer.destroy();
     });
 
-    it('bindGridClick 使 rootContainer 可交互（替代原 gridOverlay 绑定，因其非 PIXI 容器）', () => {
+    it('bindGridClick 在 rootContainer 上注册 pointerdown（无需 eventMode，由 ScreenToWorld 数学拾取替代）', () => {
         const renderer = new BlockRenderer(layerStack);
+        renderer.setScreenToWorld(stw);
         renderer.bindGridClick(gridOverlay);
 
         const root = layerStack.getRootContainer();
-        assert.strictEqual(root.eventMode, 'static');
-        assert.strictEqual(root.cursor, 'crosshair');
-        assert.ok(root._listeners['pointerdown'] && root._listeners['pointerdown'].length > 0);
+        // 新架构使用 ScreenToWorld 逆变换拾取，不依赖 PIXI eventMode
+        assert.ok(root._listeners['pointerdown'] && root._listeners['pointerdown'].length > 0,
+            'rootContainer 应有 pointerdown 监听');
         renderer.destroy();
     });
 
-    it('点击方块坐标触发 removeBlock（全局 handler 等轴逆投影）', async () => {
+    it('点击方块坐标触发 removeBlock（ScreenToWorld 逆变换拾取）', async () => {
         const renderer = new BlockRenderer(layerStack);
+        renderer.setScreenToWorld(stw);
         await renderer.addBlock(2, 2, 0, 'grass');
         assert.strictEqual(renderer.blockCount, 1);
 
         renderer.bindGridClick(gridOverlay);
 
-        // 模拟点击 (gx=2, gy=2) 的位置
-        // screenX = (2-2)*12 = 0, screenY = (2+2)*6 = 24
-        const mockEvent = {
-            getLocalPosition: () => ({ x: 0, y: 24 })
-        };
+        // 模拟点击 block(2,2,0) 的屏幕坐标
+        // screenX = 400 + (2-2)*12 = 400, screenY = 300 + (2+2)*6 = 324
+        const mockEvent = { global: { x: 400, y: 324 } };
         const root = layerStack.getRootContainer();
         root.emit('pointerdown', mockEvent);
 
@@ -1144,15 +1183,14 @@ describe('BlockRenderer - 网格点击交互', () => {
 
     it('点击空白格点添加随机方块', async () => {
         const renderer = new BlockRenderer(layerStack);
+        renderer.setScreenToWorld(stw);
         // 先添加一个方块确保底层渲染就绪
         await renderer.addBlock(0, 0, 0, 'grass');
         renderer.bindGridClick(gridOverlay);
 
-        // 模拟点击空白位置 (gx=3, gy=2)
-        // screenX = (3-2)*12 = 12, screenY = (3+2)*6 = 30
-        const mockEvent = {
-            getLocalPosition: () => ({ x: 12, y: 30 })
-        };
+        // 模拟点击空白位置 (gx=3, gy=2) 的屏幕坐标
+        // screenX = 400 + (3-2)*12 = 412, screenY = 300 + (3+2)*6 = 330
+        const mockEvent = { global: { x: 412, y: 330 } };
         const root = layerStack.getRootContainer();
         root.emit('pointerdown', mockEvent);
 
@@ -1166,6 +1204,7 @@ describe('BlockRenderer - 网格点击交互', () => {
 
     it('unbindGridClick 移除 rootContainer 监听并重置标志', () => {
         const renderer = new BlockRenderer(layerStack);
+        renderer.setScreenToWorld(stw);
         renderer.bindGridClick(gridOverlay);
         assert.strictEqual(renderer._gridClickEnabled, true);
 
@@ -1182,17 +1221,16 @@ describe('BlockRenderer - 网格点击交互', () => {
 
     it('新方块可通过 rootContainer 全局 handler 点击删除', async () => {
         const renderer = new BlockRenderer(layerStack);
+        renderer.setScreenToWorld(stw);
         renderer.bindGridClick(gridOverlay);
 
         // 在 bindGridClick 之后添加新方块
         await renderer.addBlock(1, 1, 0, 'stone');
         assert.strictEqual(renderer.blockCount, 1);
 
-        // 模拟点击 (gx=1, gy=1) 的位置
-        // screenX = (1-1)*12 = 0, screenY = (1+1)*6 = 12
-        const mockEvent = {
-            getLocalPosition: () => ({ x: 0, y: 12 })
-        };
+        // 模拟点击 block(1,1,0) 的屏幕坐标
+        // screenX = 400 + (1-1)*12 = 400, screenY = 300 + (1+1)*6 = 312
+        const mockEvent = { global: { x: 400, y: 312 } };
         const root = layerStack.getRootContainer();
         root.emit('pointerdown', mockEvent);
 
@@ -1201,14 +1239,32 @@ describe('BlockRenderer - 网格点击交互', () => {
         renderer.destroy();
     });
 
+    it('未设置 ScreenToWorld 时点击不触发（优雅降级）', async () => {
+        const renderer = new BlockRenderer(layerStack);
+        // 故意不调用 setScreenToWorld
+        await renderer.addBlock(0, 0, 0, 'grass');
+        assert.strictEqual(renderer.blockCount, 1);
+
+        renderer.bindGridClick(gridOverlay);
+
+        const mockEvent = { global: { x: 400, y: 300 } };
+        const root = layerStack.getRootContainer();
+        root.emit('pointerdown', mockEvent);
+
+        // 无 ScreenToWorld → _getHitBlock 返回 null → 不应触发任何操作
+        assert.strictEqual(renderer.blockCount, 1);
+        renderer.destroy();
+    });
+
     it('destroy 时自动解绑点击', () => {
         const renderer = new BlockRenderer(layerStack);
+        renderer.setScreenToWorld(stw);
         renderer.bindGridClick(gridOverlay);
         assert.strictEqual(renderer._gridClickEnabled, true);
 
         renderer.destroy();
 
-});
+    });
 });
 
 
